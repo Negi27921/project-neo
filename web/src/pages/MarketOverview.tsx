@@ -211,6 +211,7 @@ function RRGTooltip({ active, payload }: { active?: boolean; payload?: { payload
 // ── Sector Rotation Chart ──────────────────────────────────────────────────
 
 function SectorRRG({ data }: { data: SectorPoint[] }) {
+  if (!data || data.length === 0) return null
   // Compute axis domain with padding
   const xs = data.map(d => d.rs_ratio)
   const ys = data.map(d => d.rs_momentum)
@@ -639,7 +640,7 @@ export default function MarketOverview() {
   // Top 4 key indices for big cards
   const KEY_TICKERS = ['^NSEI', '^NSEBANK', '^CNXIT', '^CNXAUTO']
   const keyIndices = KEY_TICKERS
-    .map(t => overview?.indices.find(d => d.ticker === t))
+    .map(t => (overview?.indices ?? []).find(d => d.ticker === t))
     .filter(Boolean) as MarketOverview['indices']
 
   return (
