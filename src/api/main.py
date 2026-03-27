@@ -51,8 +51,5 @@ app.include_router(positions.router, prefix="/api", tags=["positions"])
 
 @app.get("/api/health")
 def health():
-    from src.api.deps import is_live
-    return {
-        "status": "ok",
-        "broker": "shoonya_live" if is_live() else "mock",
-    }
+    from src.api.deps import broker_name
+    return {"status": "ok", "broker": broker_name()}

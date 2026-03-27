@@ -30,8 +30,14 @@ const NAV_GROUPS = [
 export default function Sidebar() {
   const [live, setLive] = useState<boolean | null>(null)
 
+  const [brokerName, setBrokerName] = useState('mock')
+
   useEffect(() => {
-    client.get('/health').then(r => setLive(r.data.broker === 'shoonya_live')).catch(() => setLive(false))
+    client.get('/health').then(r => {
+      const b = r.data.broker ?? 'mock'
+      setBrokerName(b)
+      setLive(b !== 'mock')
+    }).catch(() => setLive(false))
   }, [])
 
   const isLive = live === true
@@ -87,7 +93,7 @@ export default function Sidebar() {
             color: isLive ? 'var(--t-matrix)' : 'var(--t4)',
             fontFamily: 'var(--font-mono)', letterSpacing: '0.08em', marginTop: 3,
           }}>
-            v1.0 · {isLive ? 'SHOONYA LIVE' : 'MOCK MODE'}
+            v1.0 · {brokerName === 'dhan_live' ? 'DHAN LIVE' : brokerName === 'shoonya_live' ? 'SHOONYA LIVE' : 'MOCK MODE'}
           </div>
         </div>
       </div>
@@ -148,11 +154,11 @@ export default function Sidebar() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4 }}>
           <span className="live-dot" style={{ width: 4, height: 4 } as React.CSSProperties} />
           <span style={{ color: 'var(--t-matrix)', fontWeight: 600 }}>
-            {isLive ? 'SHOONYA CONNECTED' : 'API CONNECTED'}
+            {brokerName === 'dhan_live' ? 'DHAN CONNECTED' : brokerName === 'shoonya_live' ? 'SHOONYA CONNECTED' : 'API CONNECTED'}
           </span>
         </div>
         <div style={{ color: 'var(--t4)', fontSize: 8 }}>
-          {isLive ? 'NSE LIVE · FN200465 · :8000' : 'NSE MOCK · SEED=42 · :8000'}
+          {brokerName === 'dhan_live' ? 'NSE LIVE · DHAN · :8000' : brokerName === 'shoonya_live' ? 'NSE LIVE · SHOONYA · :8000' : 'NSE MOCK · SEED=42 · :8000'}
         </div>
       </div>
     </aside>
