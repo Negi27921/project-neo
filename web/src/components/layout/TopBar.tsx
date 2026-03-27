@@ -3,12 +3,13 @@ import { useLocation } from 'react-router-dom'
 import { Activity, Wifi } from 'lucide-react'
 
 const PAGE_TITLES: Record<string, { label: string; sub?: string }> = {
-  '/':           { label: 'DASHBOARD',        sub: 'Portfolio Overview'           },
-  '/screener':   { label: 'SCREENER',          sub: 'Strategy Signal Scanner'     },
-  '/analytics':  { label: 'ANALYTICS',         sub: 'P&L Curve + Calendar'        },
-  '/trades':     { label: 'TRADE LOGS',        sub: 'Full Trade History'           },
-  '/positions':  { label: 'POSITIONS',         sub: 'Live & Paper Trades'         },
-  '/simulator':  { label: 'BOT SIMULATOR',     sub: 'Backtest & Paper Trading'    },
+  '/':           { label: 'MARKET OVERVIEW',   sub: 'Live Indices · RRG · Screener' },
+  '/portfolio':  { label: 'DASHBOARD',         sub: 'Portfolio Overview'            },
+  '/screener':   { label: 'SCREENER',          sub: 'Strategy Signal Scanner'      },
+  '/analytics':  { label: 'ANALYTICS',         sub: 'P&L Curve + Calendar'         },
+  '/trades':     { label: 'TRADE LOGS',        sub: 'Full Trade History'            },
+  '/positions':  { label: 'POSITIONS',         sub: 'Live & Paper Trades'          },
+  '/simulator':  { label: 'BOT SIMULATOR',     sub: 'Backtest & Paper Trading'     },
 }
 
 function isMarketHours() {

@@ -1,28 +1,29 @@
 import { NavLink } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import { LayoutDashboard, ScanSearch, BarChart2, BookOpen, Briefcase, Bot, ChevronRight } from 'lucide-react'
+import { Globe, LayoutDashboard, ScanSearch, BarChart2, BookOpen, Briefcase, Bot, ChevronRight } from 'lucide-react'
 import client from '../../api/client'
 
 const NAV_GROUPS = [
   {
-    label: 'OVERVIEW',
+    label: 'MARKETS',
     items: [
-      { to: '/',          icon: LayoutDashboard, label: 'Dashboard'     },
-      { to: '/positions', icon: Briefcase,       label: 'Positions'     },
+      { to: '/',           icon: Globe,           label: 'Market Overview', end: true },
+      { to: '/positions',  icon: Briefcase,       label: 'Positions'     },
     ],
   },
   {
-    label: 'ANALYSIS',
+    label: 'PORTFOLIO',
     items: [
-      { to: '/screener',  icon: ScanSearch,      label: 'Screener'      },
-      { to: '/analytics', icon: BarChart2,       label: 'Analytics'     },
-      { to: '/trades',    icon: BookOpen,        label: 'Trade Logs'    },
+      { to: '/portfolio',  icon: LayoutDashboard, label: 'Dashboard'     },
+      { to: '/trades',     icon: BookOpen,        label: 'Trade Logs'    },
+      { to: '/analytics',  icon: BarChart2,       label: 'Analytics'     },
     ],
   },
   {
-    label: 'AUTOMATION',
+    label: 'TOOLS',
     items: [
-      { to: '/simulator', icon: Bot,             label: 'Bot Simulator' },
+      { to: '/screener',   icon: ScanSearch,      label: 'Screener'      },
+      { to: '/simulator',  icon: Bot,             label: 'Bot Simulator' },
     ],
   },
 ]
@@ -111,11 +112,11 @@ export default function Sidebar() {
               {group.label}
             </div>
 
-            {group.items.map(({ to, icon: Icon, label }) => (
+            {group.items.map(({ to, icon: Icon, label, end }) => (
               <NavLink
                 key={to}
                 to={to}
-                end={to === '/'}
+                end={end ?? false}
                 style={({ isActive }) => ({
                   display: 'flex',
                   alignItems: 'center',

@@ -2,6 +2,7 @@ import { Component, type ReactNode, useState } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import RootLayout from './components/layout/RootLayout'
 import LoginPage from './pages/LoginPage'
+import MarketOverview from './pages/MarketOverview'
 import Dashboard from './pages/Dashboard'
 import Screener from './pages/Screener'
 import Analytics from './pages/Analytics'
@@ -45,12 +46,13 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route element={<RootLayout />}>
-            <Route index           element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
-            <Route path="screener" element={<ErrorBoundary><Screener /></ErrorBoundary>} />
-            <Route path="analytics" element={<ErrorBoundary><Analytics /></ErrorBoundary>} />
-            <Route path="trades"   element={<ErrorBoundary><TradeLogs /></ErrorBoundary>} />
-            <Route path="positions" element={<ErrorBoundary><Positions /></ErrorBoundary>} />
-            <Route path="simulator" element={<ErrorBoundary><Simulator /></ErrorBoundary>} />
+            <Route index              element={<ErrorBoundary><MarketOverview /></ErrorBoundary>} />
+            <Route path="portfolio"  element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
+            <Route path="screener"   element={<ErrorBoundary><Screener /></ErrorBoundary>} />
+            <Route path="analytics"  element={<ErrorBoundary><Analytics /></ErrorBoundary>} />
+            <Route path="trades"     element={<ErrorBoundary><TradeLogs /></ErrorBoundary>} />
+            <Route path="positions"  element={<ErrorBoundary><Positions /></ErrorBoundary>} />
+            <Route path="simulator"  element={<ErrorBoundary><Simulator /></ErrorBoundary>} />
           </Route>
         </Routes>
       </BrowserRouter>
