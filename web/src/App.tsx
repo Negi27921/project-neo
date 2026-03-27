@@ -1,5 +1,6 @@
 import { Component, type ReactNode, useState } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { AuthContext } from './contexts/AuthContext'
 import RootLayout from './components/layout/RootLayout'
 import LoginPage from './pages/LoginPage'
 import MarketOverview from './pages/MarketOverview'
@@ -10,7 +11,9 @@ import TradeLogs from './pages/TradeLogs'
 import Positions from './pages/Positions'
 import Simulator from './pages/Simulator'
 
-/* ── Error boundary: catches render crashes, shows helpful UI ── */
+const AUTH_KEY = 'neo_auth_v1'
+
+/* ── Error boundary ────────────────────────────────────────────────────── */
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null }
   static getDerivedStateFromError(error: Error) { return { error } }
@@ -36,26 +39,42 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
   }
 }
 
+/* ── App ───────────────────────────────────────────────────────────────── */
 export default function App() {
-  const [loggedIn, setLoggedIn] = useState(false)
+  // Persist login across refreshes via localStorage
+  const [loggedIn, setLoggedIn] = useState<boolean>(() => {
+    try { return localStorage.getItem(AUTH_KEY) === '1' } catch { return false }
+  })
 
-  if (!loggedIn) return <LoginPage onLogin={() => setLoggedIn(true)} />
+  const handleLogin = () => {
+    try { localStorage.setItem(AUTH_KEY, '1') } catch { /* private browsing */ }
+    setLoggedIn(true)
+  }
+
+  const handleLogout = () => {
+    try { localStorage.removeItem(AUTH_KEY) } catch { /* ignore */ }
+    setLoggedIn(false)
+  }
+
+  if (!loggedIn) return <LoginPage onLogin={handleLogin} />
 
   return (
     <ErrorBoundary>
-      <BrowserRouter>
-        <Routes>
-          <Route element={<RootLayout />}>
-            <Route index              element={<ErrorBoundary><MarketOverview /></ErrorBoundary>} />
-            <Route path="portfolio"  element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
-            <Route path="screener"   element={<ErrorBoundary><Screener /></ErrorBoundary>} />
-            <Route path="analytics"  element={<ErrorBoundary><Analytics /></ErrorBoundary>} />
-            <Route path="trades"     element={<ErrorBoundary><TradeLogs /></ErrorBoundary>} />
-            <Route path="positions"  element={<ErrorBoundary><Positions /></ErrorBoundary>} />
-            <Route path="simulator"  element={<ErrorBoundary><Simulator /></ErrorBoundary>} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
+      <AuthContext.Provider value={{ logout: handleLogout }}>
+        <BrowserRouter>
+          <Routes>
+            <Route element={<RootLayout />}>
+              <Route index             element={<ErrorBoundary><MarketOverview /></ErrorBoundary>} />
+              <Route path="portfolio"  element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
+              <Route path="screener"   element={<ErrorBoundary><Screener /></ErrorBoundary>} />
+              <Route path="analytics"  element={<ErrorBoundary><Analytics /></ErrorBoundary>} />
+              <Route path="trades"     element={<ErrorBoundary><TradeLogs /></ErrorBoundary>} />
+              <Route path="positions"  element={<ErrorBoundary><Positions /></ErrorBoundary>} />
+              <Route path="simulator"  element={<ErrorBoundary><Simulator /></ErrorBoundary>} />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      </AuthContext.Provider>
     </ErrorBoundary>
   )
 }

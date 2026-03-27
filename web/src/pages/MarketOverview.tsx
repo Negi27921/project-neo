@@ -643,11 +643,15 @@ export default function MarketOverview() {
     .filter(Boolean) as MarketOverview['indices']
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: 'var(--bg-base)' }}>
-      {/* Ticker tape */}
-      {tapeTicker.length > 0 && <TickerTape items={tapeTicker} />}
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      {/* Ticker tape — negative margin escapes RootLayout's 16px 20px padding for full-bleed */}
+      {tapeTicker.length > 0 && (
+        <div style={{ margin: '-16px -20px 0' }}>
+          <TickerTape items={tapeTicker} />
+        </div>
+      )}
 
-      <div style={{ padding: '16px 24px', flex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ padding: '16px 0', display: 'flex', flexDirection: 'column', gap: 16 }}>
 
         {/* Page title */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

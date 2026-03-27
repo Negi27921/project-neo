@@ -1,13 +1,25 @@
 """
-Positions router — uses live Shoonya data when connected, falls back to mock.
+Positions router — uses live broker data when connected, falls back to mock.
+Supports in-memory SL/TP editing via PUT /positions/{symbol}/levels.
 """
 import random
 from datetime import datetime, timedelta
 from fastapi import APIRouter
+from pydantic import BaseModel
 
 from src.api.deps import get_broker, is_live
 
 router = APIRouter()
+
+# ── In-memory SL/TP level store (persists until server restart) ───────────────
+_position_levels: dict[str, dict] = {}   # keyed by symbol
+
+
+class LevelUpdate(BaseModel):
+    stop_loss: float | None = None
+    target_1:  float | None = None
+    target_2:  float | None = None
+
 
 # ── Mock fallback data ────────────────────────────────────────────────────────
 
@@ -182,6 +194,26 @@ def _live_holdings() -> list[dict]:
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 
+def _apply_levels(positions: list[dict]) -> list[dict]:
+    """Merge any saved SL/TP levels from the in-memory store into positions."""
+    for p in positions:
+        sym = p.get('symbol', '')
+        if sym in _position_levels:
+            lvl = _position_levels[sym]
+            if lvl.get('stop_loss') is not None:
+                p['stop_loss'] = lvl['stop_loss']
+            if lvl.get('target_1') is not None:
+                p['target_1'] = lvl['target_1']
+            if lvl.get('target_2') is not None:
+                p['target_2'] = lvl['target_2']
+            # Recompute progress if we now have SL + TP1
+            sl, tp1, ltp = p.get('stop_loss'), p.get('target_1'), p.get('ltp', 0)
+            if sl and tp1 and tp1 > sl:
+                full_range = tp1 - sl
+                p['progress_to_tp1'] = min(100, max(0, round(((ltp - sl) / full_range) * 100, 1)))
+    return positions
+
+
 @router.get('/positions')
 def get_positions():
     if is_live():
@@ -189,7 +221,9 @@ def get_positions():
     else:
         positions = _make_mock_positions()
 
-    total_invested = sum(p['invested'] for p in positions if p['invested'])
+    positions = _apply_levels(positions)
+
+    total_invested = sum(p['invested'] for p in positions if p.get('invested'))
     total_unrealized = sum(p['unrealized_pnl'] for p in positions)
     return {
         'positions': positions,
@@ -199,6 +233,17 @@ def get_positions():
         'total_unrealized_pnl_pct': round(total_unrealized / total_invested * 100, 2) if total_invested else 0,
         'live': is_live(),
     }
+
+
+@router.put('/positions/{symbol}/levels')
+def update_position_levels(symbol: str, body: LevelUpdate):
+    """Save SL / TP1 / TP2 levels for a position (in-memory, session-scoped)."""
+    _position_levels[symbol.upper()] = {
+        'stop_loss': body.stop_loss,
+        'target_1':  body.target_1,
+        'target_2':  body.target_2,
+    }
+    return {'symbol': symbol.upper(), 'levels': _position_levels[symbol.upper()]}
 
 
 @router.get('/positions/paper')

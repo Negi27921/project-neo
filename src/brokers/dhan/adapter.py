@@ -1,25 +1,28 @@
 """
 Dhan (DhanHQ) broker adapter — uses dhanhq v2 REST API.
 
-Portfolio data (positions, holdings, margin) → Dhan Trading API (free).
-Live quotes → Dhan Data API if subscribed, else yfinance (free, ~15s delay).
+Portfolio data (positions, holdings, margin) -> Dhan Trading API (free).
+Live quotes -> Dhan Data API if subscribed, else yfinance (~15s delay, free).
+Historical OHLCV -> yfinance always (Dhan historical API requires subscription).
 """
 
+from datetime import datetime
 from decimal import Decimal
 
 from dhanhq import dhanhq as DhanClient
 
 from src.brokers.base import (
-    BrokerBase, Exchange, Holding, Margin, Position, Quote,
+    BrokerBase, Candle, Exchange, Holding, Margin, Position, Quote,
 )
 
 
 # ---------------------------------------------------------------------------
-# Symbol / Security ID mapping
+# Symbol helpers
 # ---------------------------------------------------------------------------
 
 NSE_EQ = "NSE_EQ"
 
+# Dhan security IDs for the 8 stocks where we use Dhan's own APIs
 SYMBOL_TO_SECURITY_ID: dict[str, int] = {
     "RELIANCE":   2885,
     "TCS":        11536,
@@ -35,69 +38,121 @@ SYMBOL_TO_SECURITY_ID: dict[str, int] = {
 
 SECURITY_ID_TO_SYMBOL: dict[int, str] = {v: k for k, v in SYMBOL_TO_SECURITY_ID.items()}
 
-# yfinance NSE tickers
-YF_SUFFIX = ".NS"
-SYMBOL_TO_YF: dict[str, str] = {s: f"{s}{YF_SUFFIX}" for s in SYMBOL_TO_SECURITY_ID
-                                  if s not in ("NIFTY50", "BANKNIFTY")}
-SYMBOL_TO_YF.update({"NIFTY50": "^NSEI", "BANKNIFTY": "^NSEBANK"})
+
+def _yf_ticker(symbol: str) -> str:
+    """Return the yfinance ticker for an NSE symbol."""
+    # Indices
+    _INDEX_MAP = {
+        "NIFTY50": "^NSEI",
+        "BANKNIFTY": "^NSEBANK",
+        "NIFTYNEXT50": "^NSMIDCP",
+    }
+    return _INDEX_MAP.get(symbol, f"{symbol}.NS")
 
 
 # ---------------------------------------------------------------------------
-# yfinance quote fetcher (used when Dhan Data API not subscribed)
+# yfinance quote fetcher — works for ANY NSE symbol
 # ---------------------------------------------------------------------------
 
 def _yf_quotes(symbols: list[str]) -> dict[str, Quote]:
-    """Fetch live NSE quotes via yfinance. ~15s delay, no subscription needed."""
+    """Fetch live NSE quotes via yfinance. ~15s delay. Works for any symbol."""
     import yfinance as yf
 
-    yf_tickers = [SYMBOL_TO_YF[s] for s in symbols if s in SYMBOL_TO_YF]
-    if not yf_tickers:
+    if not symbols:
         return {}
 
-    data = yf.download(
-        " ".join(yf_tickers),
-        period="1d",
-        interval="1m",
-        progress=False,
-        auto_adjust=True,
-    )
+    yf_tickers = [_yf_ticker(s) for s in symbols]
+    ticker_to_sym = dict(zip(yf_tickers, symbols))
 
-    result: dict[str, Quote] = {}
+    try:
+        data = yf.download(
+            " ".join(yf_tickers),
+            period="5d",
+            interval="1d",
+            progress=False,
+            auto_adjust=True,
+        )
+    except Exception:
+        return {}
 
     if data.empty:
-        return result
+        return {}
 
-    # Multi-ticker: columns are MultiIndex (field, ticker)
-    # Single-ticker: columns are just field names
     multi = isinstance(data.columns, __import__("pandas").MultiIndex)
+    result: dict[str, Quote] = {}
 
-    for sym in symbols:
-        yf_ticker = SYMBOL_TO_YF.get(sym)
-        if not yf_ticker:
-            continue
+    for yf_t, sym in ticker_to_sym.items():
         try:
             if multi:
-                row = data.xs(yf_ticker, axis=1, level=1).dropna().iloc[-1]
+                sub = data.xs(yf_t, axis=1, level=1).dropna()
             else:
-                row = data.dropna().iloc[-1]
+                sub = data.dropna()
 
+            if sub.empty:
+                continue
+
+            row = sub.iloc[-1]
+            close = float(row.get("Close", 0) or 0)
             result[sym] = Quote(
                 exchange=Exchange.NSE,
                 symbol=sym,
-                ltp=Decimal(str(round(float(row.get("Close", row.get("close", 0))), 2))),
+                ltp=Decimal(str(round(close, 2))),
                 bid=Decimal("0"),
                 ask=Decimal("0"),
-                open=Decimal(str(round(float(row.get("Open", row.get("open", 0))), 2))),
-                high=Decimal(str(round(float(row.get("High", row.get("high", 0))), 2))),
-                low=Decimal(str(round(float(row.get("Low", row.get("low", 0))), 2))),
-                close=Decimal(str(round(float(row.get("Close", row.get("close", 0))), 2))),
-                volume=int(row.get("Volume", row.get("volume", 0))),
+                open=Decimal(str(round(float(row.get("Open", 0) or 0), 2))),
+                high=Decimal(str(round(float(row.get("High", 0) or 0), 2))),
+                low=Decimal(str(round(float(row.get("Low", 0) or 0), 2))),
+                close=Decimal(str(round(close, 2))),
+                volume=int(row.get("Volume", 0) or 0),
                 oi=0,
             )
         except Exception:
             continue
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# yfinance historical OHLCV fetcher
+# ---------------------------------------------------------------------------
+
+def _yf_historical(symbol: str, from_dt: datetime, to_dt: datetime) -> list[Candle]:
+    """Fetch daily OHLCV candles via yfinance for any NSE symbol."""
+    import yfinance as yf
+
+    days = max(1, (to_dt - from_dt).days + 5)
+    period = f"{min(days, 730)}d"
+
+    try:
+        hist = yf.Ticker(_yf_ticker(symbol)).history(
+            period=period, interval="1d", auto_adjust=True
+        )
+    except Exception:
+        return []
+
+    if hist.empty:
+        return []
+
+    import math
+    candles: list[Candle] = []
+    for ts, row in hist.iterrows():
+        try:
+            close_val = float(row["Close"])
+            if math.isnan(close_val):
+                continue   # skip incomplete / missing candles
+            dt = ts.to_pydatetime() if hasattr(ts, "to_pydatetime") else datetime(ts.year, ts.month, ts.day)
+            candles.append(Candle(
+                timestamp=dt,
+                open=Decimal(str(round(float(row["Open"]), 2))),
+                high=Decimal(str(round(float(row["High"]), 2))),
+                low=Decimal(str(round(float(row["Low"]), 2))),
+                close=Decimal(str(round(close_val, 2))),
+                volume=int(row.get("Volume", 0) or 0),
+            ))
+        except Exception:
+            continue
+
+    return candles
 
 
 # ---------------------------------------------------------------------------
@@ -108,8 +163,9 @@ class DhanAdapter(BrokerBase):
     """
     Dhan broker adapter.
 
-    Portfolio (positions, holdings, margin) → Dhan Trading API.
-    Quotes → Dhan Data API if subscribed, fallback to yfinance.
+    Portfolio (positions, holdings, margin) -> Dhan Trading API.
+    Quotes -> Dhan Data API if subscribed, fallback to yfinance.
+    Historical OHLCV -> yfinance (Dhan historical API needs subscription).
     """
 
     def __init__(self, client_id: str, access_token: str) -> None:
@@ -117,7 +173,7 @@ class DhanAdapter(BrokerBase):
         self._access_token = access_token
         self._api = DhanClient(client_id=client_id, access_token=access_token)
         self._logged_in = False
-        self._dhan_data_api = False  # True if Data API subscription found
+        self._dhan_data_api = False
 
     # -----------------------------------------------------------------------
     # Session
@@ -129,7 +185,6 @@ class DhanAdapter(BrokerBase):
             resp = self._api.get_fund_limits()
             if resp.get("status") == "success":
                 self._logged_in = True
-                # Probe Data API availability
                 probe = self._api.ticker_data({NSE_EQ: [2885]})
                 self._dhan_data_api = probe.get("status") == "success"
                 src = "Dhan Data API" if self._dhan_data_api else "yfinance (Data API not subscribed)"
@@ -150,7 +205,7 @@ class DhanAdapter(BrokerBase):
         return self._logged_in
 
     # -----------------------------------------------------------------------
-    # Market Data
+    # Market Data — Quotes
     # -----------------------------------------------------------------------
 
     def get_quotes_batch(self, symbols: list[str]) -> dict[str, Quote]:
@@ -178,14 +233,33 @@ class DhanAdapter(BrokerBase):
                     )
                 return result
 
-        # Fallback: yfinance
+        # Fallback: yfinance (works for any NSE symbol now)
         return _yf_quotes(symbols)
 
     def get_quote(self, exchange: Exchange, symbol: str) -> Quote:
         quotes = self.get_quotes_batch([symbol])
-        if symbol not in quotes:
-            raise RuntimeError(f"[Dhan] No quote for {symbol}")
-        return quotes[symbol]
+        if symbol in quotes:
+            return quotes[symbol]
+        # Last resort: direct yfinance single-ticker fetch
+        result = _yf_quotes([symbol])
+        if symbol in result:
+            return result[symbol]
+        raise RuntimeError(f"[Dhan] No quote for {symbol}")
+
+    # -----------------------------------------------------------------------
+    # Market Data — Historical OHLCV (yfinance)
+    # -----------------------------------------------------------------------
+
+    def get_historical(
+        self,
+        exchange: Exchange,
+        symbol: str,
+        interval: str,
+        from_dt: datetime,
+        to_dt: datetime,
+    ) -> list[Candle]:
+        """Fetch daily candles via yfinance. Works for any NSE symbol."""
+        return _yf_historical(symbol, from_dt, to_dt)
 
     # -----------------------------------------------------------------------
     # Portfolio
@@ -252,11 +326,10 @@ class DhanAdapter(BrokerBase):
             unrealized_pnl=Decimal(str(d.get("unrealizedProfit") or 0)),
         )
 
-    # Stubs
+    # Stubs — order management not yet implemented
     def place_order(self, *a, **kw): raise NotImplementedError
     def modify_order(self, *a, **kw): raise NotImplementedError
     def cancel_order(self, *a, **kw): raise NotImplementedError
     def get_order_status(self, *a, **kw): raise NotImplementedError
-    def get_historical(self, *a, **kw): raise NotImplementedError
     def subscribe(self, *a, **kw): raise NotImplementedError
     def unsubscribe(self, *a, **kw): raise NotImplementedError

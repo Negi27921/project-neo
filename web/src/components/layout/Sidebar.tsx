@@ -1,36 +1,37 @@
 import { NavLink } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import { Globe, LayoutDashboard, ScanSearch, BarChart2, BookOpen, Briefcase, Bot, ChevronRight } from 'lucide-react'
+import { Globe, LayoutDashboard, ScanSearch, BarChart2, BookOpen, Briefcase, Bot, ChevronRight, LogOut } from 'lucide-react'
 import client from '../../api/client'
+import { useAuth } from '../../contexts/AuthContext'
 
 const NAV_GROUPS = [
   {
     label: 'MARKETS',
     items: [
       { to: '/',           icon: Globe,           label: 'Market Overview', end: true },
-      { to: '/positions',  icon: Briefcase,       label: 'Positions'     },
+      { to: '/positions',  icon: Briefcase,       label: 'Positions',       end: false },
     ],
   },
   {
     label: 'PORTFOLIO',
     items: [
-      { to: '/portfolio',  icon: LayoutDashboard, label: 'Dashboard'     },
-      { to: '/trades',     icon: BookOpen,        label: 'Trade Logs'    },
-      { to: '/analytics',  icon: BarChart2,       label: 'Analytics'     },
+      { to: '/portfolio',  icon: LayoutDashboard, label: 'Dashboard',       end: false },
+      { to: '/trades',     icon: BookOpen,        label: 'Trade Logs',      end: false },
+      { to: '/analytics',  icon: BarChart2,       label: 'Analytics',       end: false },
     ],
   },
   {
     label: 'TOOLS',
     items: [
-      { to: '/screener',   icon: ScanSearch,      label: 'Screener'      },
-      { to: '/simulator',  icon: Bot,             label: 'Bot Simulator' },
+      { to: '/screener',   icon: ScanSearch,      label: 'Screener',        end: false },
+      { to: '/simulator',  icon: Bot,             label: 'Bot Simulator',   end: false },
     ],
   },
 ]
 
 export default function Sidebar() {
+  const { logout } = useAuth()
   const [live, setLive] = useState<boolean | null>(null)
-
   const [brokerName, setBrokerName] = useState('mock')
 
   useEffect(() => {
@@ -116,7 +117,7 @@ export default function Sidebar() {
               <NavLink
                 key={to}
                 to={to}
-                end={end ?? false}
+                end={end}
                 style={({ isActive }) => ({
                   display: 'flex',
                   alignItems: 'center',
@@ -151,7 +152,7 @@ export default function Sidebar() {
       </nav>
 
       {/* ── Status footer ───────────────────────────────────── */}
-      <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)', fontSize: 9, fontFamily: 'var(--font-mono)' }}>
+      <div style={{ padding: '10px 16px 4px', borderTop: '1px solid var(--border)', fontSize: 9, fontFamily: 'var(--font-mono)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4 }}>
           <span className="live-dot" style={{ width: 4, height: 4 } as React.CSSProperties} />
           <span style={{ color: 'var(--t-matrix)', fontWeight: 600 }}>
@@ -162,6 +163,40 @@ export default function Sidebar() {
           {brokerName === 'dhan_live' ? 'NSE LIVE · DHAN · :8000' : brokerName === 'shoonya_live' ? 'NSE LIVE · SHOONYA · :8000' : 'NSE MOCK · SEED=42 · :8000'}
         </div>
       </div>
+
+      {/* ── Logout button ─────────────────────────────────── */}
+      <button
+        onClick={logout}
+        style={{
+          margin: '8px 12px 12px',
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '8px 14px',
+          background: 'transparent',
+          border: '1px solid rgba(239,68,68,0.2)',
+          borderRadius: 6,
+          color: 'var(--t3)',
+          fontSize: 10, fontFamily: 'var(--font-mono)',
+          fontWeight: 500, letterSpacing: '0.08em',
+          cursor: 'pointer',
+          transition: 'all 0.15s',
+          width: 'calc(100% - 24px)',
+        }}
+        onMouseEnter={e => {
+          const el = e.currentTarget
+          el.style.background = 'rgba(239,68,68,0.08)'
+          el.style.borderColor = 'rgba(239,68,68,0.4)'
+          el.style.color = '#ef4444'
+        }}
+        onMouseLeave={e => {
+          const el = e.currentTarget
+          el.style.background = 'transparent'
+          el.style.borderColor = 'rgba(239,68,68,0.2)'
+          el.style.color = 'var(--t3)'
+        }}
+      >
+        <LogOut size={11} strokeWidth={1.5} />
+        LOGOUT
+      </button>
     </aside>
   )
 }
