@@ -3,24 +3,25 @@
    Bloomberg × TradingView × Palantir AIP aesthetic
    ═══════════════════════════════════════════════════════════════ */
 
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..900;1,9..40,100..900&family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap');
 
 /* ── DESIGN TOKENS ─────────────────────────────────────────────── */
 :root {
-  /* Backgrounds — true pitch black */
-  --bg-void:      #000000;
-  --bg-base:      #010101;
-  --bg-card:      #060606;
-  --bg-card2:     #080808;
-  --bg-elevated:  #0c0c0c;
-  --bg-hover:     #0f0f0f;
-  --bg-input:     #040404;
-  --bg-header:    #020202;
-  --bg-sidebar:   #000000;
+  /* Backgrounds — 4-tier slate-dark surface system */
+  --bg-void:      #0b0e11;   /* body — deepest surface */
+  --bg-base:      #0b0e11;   /* page background */
+  --bg-card:      #131720;   /* cards, panels */
+  --bg-card2:     #1a1f2b;   /* elevated cards, nested sections */
+  --bg-elevated:  #1a1f2b;   /* dropdowns, overlays */
+  --bg-hover:     #222836;   /* hover states */
+  --bg-overlay:   #222836;   /* modal backgrounds */
+  --bg-input:     #0f1117;   /* inputs, selects */
+  --bg-header:    #0b0e11;   /* topbar, sidebar */
+  --bg-sidebar:   #0b0e11;   /* sidebar background */
 
-  /* Borders — ultra subtle */
-  --border:         rgba(255, 255, 255, 0.07);
-  --border-subtle:  rgba(255, 255, 255, 0.03);
+  /* Borders — crisp on slate surfaces */
+  --border:         rgba(255, 255, 255, 0.09);
+  --border-subtle:  rgba(255, 255, 255, 0.05);
   --border-active:  rgba(0, 255, 65, 0.28);
   --border-green:   rgba(0, 255, 65, 0.14);
   --border-red:     rgba(255, 59, 59, 0.18);
@@ -49,11 +50,11 @@
   --cyan:       #00ccff;
   --cyan-dim:   rgba(0, 204, 255, 0.10);
 
-  /* Text — 5-level precision hierarchy */
-  --t1: #f2f2ff;           /* Primary — main values, headers */
-  --t2: #8080aa;           /* Secondary — labels, subtext */
-  --t3: #404060;           /* Tertiary — muted labels */
-  --t4: #1e1e30;           /* Ghost — disabled, separators */
+  /* Text — WCAG AA compliant 4-level hierarchy */
+  --t1: #F0F2F5;           /* Primary — main values, headers     (15:1 on void) */
+  --t2: #CDD2DA;           /* Secondary — labels, descriptions   (10:1) */
+  --t3: #8892A4;           /* Tertiary — muted labels, metadata  (6.2:1 WCAG AA) */
+  --t4: #4A5568;           /* Ghost — disabled, decorative separators */
   --t-matrix: #00ff41;
   --t-green:  #00cc36;
   --t-red:    #ff3b3b;
@@ -66,7 +67,7 @@
   --grad-header:     linear-gradient(180deg, rgba(0,255,65,0.03) 0%, transparent 100%);
 
   /* Typography */
-  --font-display: 'Space Grotesk', system-ui, sans-serif;   /* Numbers, headings */
+  --font-display: 'DM Sans', 'Space Grotesk', system-ui, sans-serif;   /* Display, headings */
   --font-mono:    'JetBrains Mono', 'Cascadia Code', 'Courier New', monospace; /* Data, code */
   --font-sans:    'Inter', system-ui, sans-serif;            /* Body copy */
 
@@ -96,7 +97,7 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html {
-  font-size: 13px;
+  font-size: 14px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;

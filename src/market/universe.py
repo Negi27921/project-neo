@@ -1,20 +1,30 @@
 """
 Market universe — index tickers, commodity tickers, stock lists.
+Covers Nifty 50 + Next 50 + Midcap extension ≈ Nifty 500 class universe.
 """
 
 # ── NSE Indices (yfinance tickers → display name) ─────────────────────────
 INDEX_TICKERS: dict[str, dict] = {
-    "^NSEI":      {"name": "NIFTY 50",       "short": "NIFTY",     "sector": "Broad"},
-    "^NSEBANK":   {"name": "BANK NIFTY",      "short": "BANKNIFTY", "sector": "Banking"},
-    "^CNXIT":     {"name": "NIFTY IT",        "short": "IT",        "sector": "IT"},
-    "^CNXAUTO":   {"name": "NIFTY AUTO",      "short": "AUTO",      "sector": "Auto"},
-    "^CNXFMCG":   {"name": "NIFTY FMCG",     "short": "FMCG",      "sector": "FMCG"},
-    "^CNXPHARMA": {"name": "NIFTY PHARMA",    "short": "PHARMA",    "sector": "Pharma"},
-    "^CNXMETAL":  {"name": "NIFTY METAL",     "short": "METAL",     "sector": "Metal"},
-    "^CNXREALTY": {"name": "NIFTY REALTY",    "short": "REALTY",    "sector": "Realty"},
-    "^CNXENERGY": {"name": "NIFTY ENERGY",    "short": "ENERGY",    "sector": "Energy"},
-    "^CNXPSUBANK":{"name": "NIFTY PSU BANK",  "short": "PSU BANK",  "sector": "Banking"},
-    "^CNXSC":     {"name": "NIFTY SMALLCAP",  "short": "SMALLCAP",  "sector": "Broad"},
+    # Broad market
+    "^NSEI":           {"name": "NIFTY 50",          "short": "NIFTY",     "sector": "Broad"},
+    "^NSEBANK":        {"name": "BANK NIFTY",         "short": "BANKNIFTY", "sector": "Banking"},
+    # Sectoral
+    "^CNXIT":          {"name": "NIFTY IT",           "short": "IT",        "sector": "IT"},
+    "^CNXAUTO":        {"name": "NIFTY AUTO",         "short": "AUTO",      "sector": "Auto"},
+    "^CNXFMCG":        {"name": "NIFTY FMCG",         "short": "FMCG",     "sector": "FMCG"},
+    "^CNXPHARMA":      {"name": "NIFTY PHARMA",       "short": "PHARMA",   "sector": "Pharma"},
+    "^CNXMETAL":       {"name": "NIFTY METAL",        "short": "METAL",    "sector": "Metal"},
+    "^CNXREALTY":      {"name": "NIFTY REALTY",       "short": "REALTY",   "sector": "Realty"},
+    "^CNXENERGY":      {"name": "NIFTY ENERGY",       "short": "ENERGY",   "sector": "Energy"},
+    "^CNXPSUBANK":     {"name": "NIFTY PSU BANK",     "short": "PSU BANK", "sector": "Banking"},
+    "^CNXSC":          {"name": "NIFTY SMALLCAP",     "short": "SMALLCAP", "sector": "Broad"},
+    # Cap-based
+    "^CNXMIDCAP":      {"name": "NIFTY MIDCAP 100",   "short": "MIDCAP",   "sector": "Broad"},
+    # Extended sectoral
+    "^CNXINFRA":       {"name": "NIFTY INFRA",         "short": "INFRA",    "sector": "Infra"},
+    "^CNXFINSERVICE":  {"name": "NIFTY FIN SERVICE",   "short": "FINSERV",  "sector": "Finance"},
+    "^CNXCONSUMPTION": {"name": "NIFTY CONSUMPTION",   "short": "CONSUMP",  "sector": "Consumer"},
+    "^CNXMEDIA":       {"name": "NIFTY MEDIA",         "short": "MEDIA",    "sector": "Media"},
 }
 
 # Indices used for Sector Rotation RRG (vs Nifty 50 benchmark)
@@ -73,27 +83,107 @@ NIFTY_200_EXTRA = [
     "PERSISTENT", "LTIM", "MPHASIS", "COFORGE", "HEXAWARE",
     "HFCL", "RAILTEL", "IRCON", "RVNL", "TITAGARH",
     "APLAPOLLO", "JINDALSTEL", "RATNAMANI", "WELSPUNIND",
-    "TATAPOWER", "ADANIGREEN", "ADANIPO", "ADANIGAS",
+    "TATAPOWER", "ADANIGREEN", "ADANIGAS",
     "SUPREMEIND", "ASTRAL", "PRINCEPIPE", "FINOLEX",
-    "BAJAJHLDNG", "MAXHEALTH", "FORTIS", "NARAYANAMUR",
-    "SUNPHARMA", "ALKEM", "ABBOTINDIA", "PFIZER",
+    "BAJAJHLDNG", "MAXHEALTH", "FORTIS",
+    "ALKEM", "ABBOTINDIA", "PFIZER",
     "RELAXO", "BATA", "VBL", "UNITEDBRW",
     "RADICO", "MCDOWELL-N", "TATAELXSI", "KPITTECH",
     "HAPPSTMNDS", "MASTEK", "ZENSARTECH", "TANLA",
 ]
 
-# All stocks for screener
-ALL_UNIVERSE = list(dict.fromkeys(NIFTY_50 + NIFTY_NEXT_50 + NIFTY_200_EXTRA))
+# ── Nifty Midcap extension ───────────────────────────────────────────────
+NIFTY_MIDCAP_EXTRA = [
+    # Finance & NBFCs
+    "LICHSGFIN", "MANAPPURAM", "M&MFIN", "IIFL", "NAM-INDIA", "UTIAMC",
+    "KFINTECH", "MOTILALOFS", "PNBHOUSING", "CREDITACC",
+    # IT & Tech platforms
+    "LTTS", "OFSS", "TATACOMM", "INDIAMART", "MCX", "IEX", "BSE",
+    # Specialty chemicals
+    "DEEPAKNTR", "NAVINFLUOR", "VINATIORGA", "CLEAN", "FLUOROCHEM", "NOCIL",
+    # Auto & Ancillaries
+    "ASHOKLEY", "BHARATFORG", "BALKRISIND", "CEATLTD", "ESCORTS",
+    "SONACOMS", "MINDA", "MOTHERSON",
+    # Pharma & Healthcare
+    "GLENMARK", "IPCALAB", "AJANTPHARM", "LALPATHLAB", "METROPOLIS", "STAR",
+    # Consumer & FMCG
+    "JUBLFOOD", "SAPPHIRE", "DEVYANI", "VSTIND", "SAFARI",
+    "PAGEIND", "RAYMOND",
+    # Capital Goods / Engineering
+    "BHEL", "CONCOR", "KALPATPOWR", "KNRCON", "IRB", "THERMAX",
+    "CUMMINSIND", "ELGIEQUIP", "GRINDWELL", "CGPOWER", "DIXON",
+    "SKFINDIA", "TIMKEN",
+    # Banks (PSU)
+    "PNB", "IOB", "UNIONBANK", "KARURVYSYA", "CITYUNIONB", "DCBBANK",
+    # Power, Gas & Utilities
+    "GAIL", "PETRONET", "GSPL", "GUJGASLTD", "TORNTPOWER", "ATGL",
+    "HUDCO", "SJVN",
+    # Real Estate
+    "LODHA",
+    # Media & Entertainment
+    "SUNTV", "ZEEL", "PVR",
+    # Building materials & Appliances
+    "VOLTAS", "BLUESTARCO", "CROMPTON", "POLYCAB", "VGUARD",
+    "HONAUT", "WHIRLPOOL",
+    # Cement & Materials
+    "RAMCOCEM", "JKCEMENT", "DALBHARAT", "STARCEMENT", "TATACHEM",
+    "AIAENG", "ATUL",
+    # Logistics
+    "SCI", "TCI",
+    # New-age / Fintech
+    "ANGELONE", "EASEMYTRIP", "NAZARA",
+    # Textiles
+    "KPRMILL", "WELSPUNIND",
+]
 
-# Sector → stocks mapping (for sector heat map)
+# ── Nifty Smallcap extension ─────────────────────────────────────────────
+NIFTY_SMALLCAP_EXTRA = [
+    # IT (small-mid)
+    "TATATECH", "BSOFT", "NIITTECH",
+    # Pharma
+    "NEULAND", "JUBLPHARMA", "GLOBUS",
+    # Agri / Specialty
+    "FINEORG", "BALAMINES",
+    # Infrastructure
+    "RITES", "NBCC",
+    # Consumer
+    "CAMPUS", "MANYAVAR",
+    # Finance
+    "UJJIVANSFB", "EQUITASBNK",
+]
+
+# ── Composite universe ────────────────────────────────────────────────────
+# ~Nifty 500 class: dedup preserves first occurrence order
+NIFTY_500 = list(dict.fromkeys(
+    NIFTY_50 + NIFTY_NEXT_50 + NIFTY_200_EXTRA
+    + NIFTY_MIDCAP_EXTRA + NIFTY_SMALLCAP_EXTRA
+))
+
+# Legacy alias — keeps existing callers working
+ALL_UNIVERSE = NIFTY_500
+
+# Sector → stocks mapping (for sector heat map / breadth)
 SECTOR_STOCKS: dict[str, list[str]] = {
-    "IT":      ["TCS", "INFY", "WIPRO", "HCLTECH", "TECHM", "PERSISTENT", "LTIM", "MPHASIS", "COFORGE"],
-    "Banking": ["HDFCBANK", "ICICIBANK", "KOTAKBANK", "AXISBANK", "SBIN", "INDUSINDBK", "BANKBARODA", "FEDERALBNK"],
-    "Auto":    ["MARUTI", "BAJAJ-AUTO", "HEROMOTOCO", "TATAMOTORS", "M&M", "EICHERMOT", "INDIGO"],
-    "FMCG":    ["HINDUNILVR", "ITC", "NESTLEIND", "BRITANNIA", "DABUR", "MARICO", "COLPAL", "GODREJCP"],
-    "Pharma":  ["SUNPHARMA", "DRREDDY", "DIVISLAB", "CIPLA", "TORNTPHARM", "APOLLOHOSP", "MAXHEALTH"],
-    "Metal":   ["TATASTEEL", "JSWSTEEL", "HINDALCO", "SAIL", "VEDL", "HINDZINC", "NATIONALUM"],
-    "Energy":  ["RELIANCE", "ONGC", "BPCL", "IOC", "ADANIGREEN", "TATAPOWER", "NTPC", "POWERGRID"],
-    "Realty":  ["DLF", "GODREJPROP", "PRESTIGE", "OBEROIRLTY", "BRIGADE", "PHOENIXLTD"],
-    "Finance": ["BAJFINANCE", "BAJAJFINSV", "SBILIFE", "HDFCLIFE", "ICICIGI", "ICICIPRULI", "MUTHOOTFIN"],
+    "IT":      ["TCS", "INFY", "WIPRO", "HCLTECH", "TECHM", "PERSISTENT", "LTIM", "MPHASIS",
+                "COFORGE", "LTTS", "OFSS", "TATACOMM", "KPITTECH", "HAPPSTMNDS"],
+    "Banking": ["HDFCBANK", "ICICIBANK", "KOTAKBANK", "AXISBANK", "SBIN", "INDUSINDBK",
+                "BANKBARODA", "FEDERALBNK", "PNB", "IOB", "UNIONBANK", "AUBANK", "KARURVYSYA"],
+    "Auto":    ["MARUTI", "BAJAJ-AUTO", "HEROMOTOCO", "TATAMOTORS", "M&M", "EICHERMOT",
+                "ASHOKLEY", "BHARATFORG", "BALKRISIND", "CEATLTD", "ESCORTS", "MINDA"],
+    "FMCG":    ["HINDUNILVR", "ITC", "NESTLEIND", "BRITANNIA", "DABUR", "MARICO",
+                "COLPAL", "GODREJCP", "VBL", "RADICO", "JUBLFOOD"],
+    "Pharma":  ["SUNPHARMA", "DRREDDY", "DIVISLAB", "CIPLA", "TORNTPHARM", "APOLLOHOSP",
+                "MAXHEALTH", "GLENMARK", "IPCALAB", "AJANTPHARM", "ALKEM"],
+    "Metal":   ["TATASTEEL", "JSWSTEEL", "HINDALCO", "SAIL", "VEDL", "HINDZINC",
+                "NATIONALUM", "JINDALSTEL"],
+    "Energy":  ["RELIANCE", "ONGC", "BPCL", "GAIL", "ADANIGREEN", "TATAPOWER",
+                "NTPC", "POWERGRID", "PETRONET", "ATGL"],
+    "Realty":  ["DLF", "GODREJPROP", "PRESTIGE", "OBEROIRLTY", "BRIGADE",
+                "PHOENIXLTD", "LODHA", "SOBHA"],
+    "Finance": ["BAJFINANCE", "BAJAJFINSV", "SBILIFE", "HDFCLIFE", "ICICIGI",
+                "ICICIPRULI", "MUTHOOTFIN", "MANAPPURAM", "LICHSGFIN", "M&MFIN"],
+    "Chemicals": ["DEEPAKNTR", "NAVINFLUOR", "VINATIORGA", "CLEAN", "FLUOROCHEM",
+                  "NOCIL", "ATUL", "PIDILITIND"],
+    "CapGoods": ["LT", "SIEMENS", "ABB", "BHEL", "CUMMINSIND", "THERMAX",
+                 "CGPOWER", "DIXON", "POLYCAB", "VOLTAS"],
 }

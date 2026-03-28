@@ -4,7 +4,8 @@ import {
   Tooltip as ReTooltip, ResponsiveContainer, Cell,
 } from 'recharts'
 import {
-  fetchMarketOverview, fetchSectorRotation, fetchTopMovers, fetchNiftyScreener,
+  fetchMarketOverview, fetchSectorRotation, fetchTopMovers,
+  fetchNiftyScreener, fetchNifty500Screener,
   type MarketOverview, type SectorPoint, type TopMovers, type StockRow,
 } from '../api/market'
 
@@ -310,48 +311,67 @@ function SectorRRG({ data }: { data: SectorPoint[] }) {
   )
 }
 
-// ── Breadth widget ─────────────────────────────────────────────────────────
+// ── Breadth panel — single universe ───────────────────────────────────────
 
-function BreadthBar({ breadth }: { breadth: MarketOverview['breadth'] }) {
+function BreadthPanel({ breadth, label }: { breadth: MarketOverview['breadth']; label: string }) {
+  if (!breadth) return null
   const total = breadth.total || 1
   const aW = (breadth.advances / total * 100).toFixed(0)
   const dW = (breadth.declines / total * 100).toFixed(0)
+  const bullish = breadth.ad_ratio >= 0.5
+  return (
+    <div style={{ flex: 1 }}>
+      <div style={{ fontSize: 9, color: 'var(--t3)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em', marginBottom: 8 }}>
+        {label}
+      </div>
+      <div style={{ display: 'flex', gap: 16, marginBottom: 8 }}>
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--green-main)', lineHeight: 1 }}>{breadth.advances}</div>
+          <div style={{ fontSize: 8, color: 'var(--t3)', fontFamily: 'var(--font-mono)', marginTop: 3 }}>ADVANCES</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--red-main)', lineHeight: 1 }}>{breadth.declines}</div>
+          <div style={{ fontSize: 8, color: 'var(--t3)', fontFamily: 'var(--font-mono)', marginTop: 3 }}>DECLINES</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--t2)', lineHeight: 1 }}>{breadth.unchanged}</div>
+          <div style={{ fontSize: 8, color: 'var(--t3)', fontFamily: 'var(--font-mono)', marginTop: 3 }}>UNCH</div>
+        </div>
+        <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: bullish ? 'var(--green-main)' : 'var(--red-main)', lineHeight: 1 }}>
+            {breadth.ad_ratio.toFixed(2)}
+          </div>
+          <div style={{ fontSize: 8, color: 'var(--t3)', fontFamily: 'var(--font-mono)', marginTop: 3 }}>A/D RATIO</div>
+        </div>
+      </div>
+      <div style={{ height: 5, borderRadius: 3, background: 'var(--bg-hover)', overflow: 'hidden', display: 'flex' }}>
+        <div style={{ width: `${aW}%`, background: 'var(--green-main)', transition: 'width 0.6s' }} />
+        <div style={{ width: `${dW}%`, background: 'var(--red-main)', transition: 'width 0.6s' }} />
+      </div>
+    </div>
+  )
+}
 
+// ── Breadth widget — dual (Nifty 100 + Nifty 500) ─────────────────────────
+
+function BreadthBar({ breadth, breadth500 }: { breadth: MarketOverview['breadth']; breadth500?: MarketOverview['breadth500'] }) {
   return (
     <div style={{
       background: 'var(--bg-card)',
       border: '1px solid var(--border)',
       borderRadius: 10,
       padding: '14px 16px',
+      display: 'flex',
+      gap: 24,
+      flexWrap: 'wrap',
     }}>
-      <div style={{ fontSize: 10, color: 'var(--t4)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em', marginBottom: 10 }}>
-        MARKET BREADTH · NIFTY 100
-      </div>
-      <div style={{ display: 'flex', gap: 16, marginBottom: 10 }}>
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--green-main)' }}>{breadth.advances}</div>
-          <div style={{ fontSize: 9, color: 'var(--t4)', fontFamily: 'var(--font-mono)' }}>ADVANCES</div>
-        </div>
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--red-main)' }}>{breadth.declines}</div>
-          <div style={{ fontSize: 9, color: 'var(--t4)', fontFamily: 'var(--font-mono)' }}>DECLINES</div>
-        </div>
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--t2)' }}>{breadth.unchanged}</div>
-          <div style={{ fontSize: 9, color: 'var(--t4)', fontFamily: 'var(--font-mono)' }}>UNCHANGED</div>
-        </div>
-        <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
-          <div style={{ fontSize: 18, fontWeight: 700, color: breadth.ad_ratio >= 0.5 ? 'var(--green-main)' : 'var(--red-main)' }}>
-            {breadth.ad_ratio.toFixed(2)}
-          </div>
-          <div style={{ fontSize: 9, color: 'var(--t4)', fontFamily: 'var(--font-mono)' }}>A/D RATIO</div>
-        </div>
-      </div>
-      {/* Stacked bar */}
-      <div style={{ height: 6, borderRadius: 3, background: 'var(--bg-hover)', overflow: 'hidden', display: 'flex' }}>
-        <div style={{ width: `${aW}%`, background: 'var(--green-main)', transition: 'width 0.6s' }} />
-        <div style={{ width: `${dW}%`, background: 'var(--red-main)', transition: 'width 0.6s' }} />
-      </div>
+      <BreadthPanel breadth={breadth} label="MARKET BREADTH · NIFTY 100" />
+      {breadth500 && breadth500.total > 0 && (
+        <>
+          <div style={{ width: 1, background: 'var(--border)', alignSelf: 'stretch' }} />
+          <BreadthPanel breadth={breadth500} label="MARKET BREADTH · NIFTY 500" />
+        </>
+      )}
     </div>
   )
 }
@@ -424,9 +444,91 @@ function MoversTable({ movers }: { movers: TopMovers }) {
   )
 }
 
-// ── Full indices table ─────────────────────────────────────────────────────
+// ── Index row component ────────────────────────────────────────────────────
+
+function IndexRow({ d, last }: { d: MarketOverview['indices'][0]; last: boolean }) {
+  return (
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: '1.6fr 90px 80px 70px 70px 70px',
+      padding: '9px 16px',
+      borderBottom: last ? 'none' : '1px solid rgba(255,255,255,0.05)',
+      fontFamily: 'var(--font-mono)', fontSize: 11,
+    }}>
+      <div>
+        <div style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{d.short}</div>
+        <div style={{ fontSize: 8, color: 'var(--t3)', marginTop: 1 }}>{d.sector}</div>
+      </div>
+      <span style={{ textAlign: 'right', color: 'var(--text-primary)', fontWeight: 600 }}>
+        {d.ltp.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+      </span>
+      <span style={{ textAlign: 'right', color: chgColor(d.change) }}>
+        {d.change >= 0 ? '+' : ''}{d.change.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+      </span>
+      <span style={{ textAlign: 'right', fontWeight: 700, color: chgColor(d.change_pct) }}>
+        {pct(d.change_pct)}
+      </span>
+      <span style={{ textAlign: 'right', color: 'var(--t2)' }}>
+        {d.high.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+      </span>
+      <span style={{ textAlign: 'right', color: 'var(--t2)' }}>
+        {d.low.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+      </span>
+    </div>
+  )
+}
+
+// Section header label within the indices table
+function IndexGroupHeader({ label }: { label: string }) {
+  return (
+    <div style={{
+      padding: '6px 16px',
+      background: 'rgba(255,255,255,0.025)',
+      borderBottom: '1px solid var(--border)',
+      borderTop: '1px solid var(--border)',
+      fontSize: 8, fontWeight: 700, color: 'var(--t3)',
+      fontFamily: 'var(--font-mono)', letterSpacing: '0.14em',
+    }}>
+      {label}
+    </div>
+  )
+}
+
+const COL_HEADERS = (
+  <div style={{
+    display: 'grid',
+    gridTemplateColumns: '1.6fr 90px 80px 70px 70px 70px',
+    padding: '6px 16px', borderBottom: '1px solid var(--border)',
+    fontSize: 8, color: 'var(--t3)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em',
+  }}>
+    <span>INDEX</span>
+    <span style={{ textAlign: 'right' }}>LTP</span>
+    <span style={{ textAlign: 'right' }}>CHANGE</span>
+    <span style={{ textAlign: 'right' }}>CHG%</span>
+    <span style={{ textAlign: 'right' }}>HIGH</span>
+    <span style={{ textAlign: 'right' }}>LOW</span>
+  </div>
+)
+
+// ── Full indices table — grouped by category ───────────────────────────────
+
+const BROAD_TICKERS   = new Set(['^NSEI', '^NSEBANK', '^CNXSC', '^CNXMIDCAP'])
+const SECTORAL_TICKERS = new Set(['^CNXIT', '^CNXAUTO', '^CNXFMCG', '^CNXPHARMA',
+  '^CNXMETAL', '^CNXREALTY', '^CNXENERGY', '^CNXPSUBANK'])
+const EXTENDED_TICKERS = new Set(['^CNXINFRA', '^CNXFINSERVICE', '^CNXCONSUMPTION', '^CNXMEDIA'])
 
 function IndicesTable({ indices }: { indices: MarketOverview['indices'] }) {
+  const broad    = indices.filter(d => BROAD_TICKERS.has(d.ticker))
+  const sectoral = indices.filter(d => SECTORAL_TICKERS.has(d.ticker))
+  const extended = indices.filter(d => EXTENDED_TICKERS.has(d.ticker))
+  const rest     = indices.filter(d =>
+    !BROAD_TICKERS.has(d.ticker) && !SECTORAL_TICKERS.has(d.ticker) && !EXTENDED_TICKERS.has(d.ticker)
+  )
+
+  function renderGroup(rows: typeof indices) {
+    return rows.map((d, i) => <IndexRow key={d.ticker} d={d} last={i === rows.length - 1} />)
+  }
+
   return (
     <div style={{
       background: 'var(--bg-card)',
@@ -435,74 +537,47 @@ function IndicesTable({ indices }: { indices: MarketOverview['indices'] }) {
       overflow: 'hidden',
     }}>
       <div style={{
-        padding: '12px 16px', borderBottom: '1px solid var(--border)',
+        padding: '10px 16px', borderBottom: '1px solid var(--border)',
         fontSize: 10, fontWeight: 700, color: 'var(--t2)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
       }}>
-        ALL INDICES
+        <span>ALL INDICES</span>
+        <span style={{ fontSize: 9, fontWeight: 400, color: 'var(--t3)' }}>{indices.length} indices</span>
       </div>
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1.4fr 80px 80px 70px 70px 70px',
-        padding: '6px 16px', borderBottom: '1px solid var(--border)',
-        fontSize: 8, color: 'var(--t4)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em',
-      }}>
-        <span>INDEX</span>
-        <span style={{ textAlign: 'right' }}>LTP</span>
-        <span style={{ textAlign: 'right' }}>CHANGE</span>
-        <span style={{ textAlign: 'right' }}>CHG%</span>
-        <span style={{ textAlign: 'right' }}>HIGH</span>
-        <span style={{ textAlign: 'right' }}>LOW</span>
-      </div>
-      {indices.map((d, i) => (
-        <div key={d.ticker} style={{
-          display: 'grid',
-          gridTemplateColumns: '1.4fr 80px 80px 70px 70px 70px',
-          padding: '9px 16px',
-          borderBottom: i < indices.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
-          fontFamily: 'var(--font-mono)', fontSize: 11,
-          background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.012)',
-        }}>
-          <div>
-            <div style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{d.short}</div>
-            <div style={{ fontSize: 8, color: 'var(--t4)', marginTop: 1 }}>{d.sector}</div>
-          </div>
-          <span style={{ textAlign: 'right', color: 'var(--text-primary)', fontWeight: 600 }}>
-            {d.ltp.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-          </span>
-          <span style={{ textAlign: 'right', color: chgColor(d.change) }}>
-            {d.change >= 0 ? '+' : ''}{d.change.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-          </span>
-          <span style={{
-            textAlign: 'right', fontWeight: 700,
-            color: chgColor(d.change_pct),
-          }}>
-            {pct(d.change_pct)}
-          </span>
-          <span style={{ textAlign: 'right', color: 'var(--t2)' }}>
-            {d.high.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-          </span>
-          <span style={{ textAlign: 'right', color: 'var(--t2)' }}>
-            {d.low.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-          </span>
-        </div>
-      ))}
+      {COL_HEADERS}
+      {broad.length > 0 && <>
+        <IndexGroupHeader label="BROAD MARKET" />
+        {renderGroup(broad)}
+      </>}
+      {sectoral.length > 0 && <>
+        <IndexGroupHeader label="SECTORAL" />
+        {renderGroup(sectoral)}
+      </>}
+      {extended.length > 0 && <>
+        <IndexGroupHeader label="THEMATIC" />
+        {renderGroup(extended)}
+      </>}
+      {rest.length > 0 && renderGroup(rest)}
     </div>
   )
 }
 
 // ── Screener table ─────────────────────────────────────────────────────────
 
-function ScreenerTable({ rows }: { rows: StockRow[] }) {
+function ScreenerTable({
+  rows100, rows500,
+}: { rows100: StockRow[]; rows500: StockRow[] }) {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'gainers' | 'losers'>('all')
+  const [universe, setUniverse] = useState<'100' | '500'>('100')
 
-  const visible = rows
-    .filter(r => {
-      if (search && !r.symbol.toLowerCase().includes(search.toLowerCase())) return false
-      if (filter === 'gainers' && r.change_pct <= 0) return false
-      if (filter === 'losers' && r.change_pct >= 0) return false
-      return true
-    })
+  const rows = universe === '100' ? rows100 : rows500
+  const visible = rows.filter(r => {
+    if (search && !r.symbol.toLowerCase().includes(search.toLowerCase())) return false
+    if (filter === 'gainers' && r.change_pct <= 0) return false
+    if (filter === 'losers' && r.change_pct >= 0) return false
+    return true
+  })
 
   return (
     <div style={{
@@ -516,9 +591,20 @@ function ScreenerTable({ rows }: { rows: StockRow[] }) {
         padding: '10px 16px', borderBottom: '1px solid var(--border)',
         display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap',
       }}>
-        <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--t2)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em', marginRight: 4 }}>
-          NIFTY 100 SCREENER
+        <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--t2)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>
+          SCREENER
         </span>
+        {/* Universe toggle */}
+        <div style={{ display: 'flex', borderRadius: 4, overflow: 'hidden', border: '1px solid var(--border)' }}>
+          {(['100','500'] as const).map(u => (
+            <button key={u} onClick={() => setUniverse(u)} style={{
+              padding: '3px 10px', border: 'none', cursor: 'pointer',
+              background: universe === u ? 'rgba(0,255,65,0.1)' : 'transparent',
+              color: universe === u ? 'var(--green-main)' : 'var(--t3)',
+              fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700,
+            }}>NIFTY {u}</button>
+          ))}
+        </div>
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
@@ -537,15 +623,15 @@ function ScreenerTable({ rows }: { rows: StockRow[] }) {
               padding: '3px 10px', borderRadius: 4, border: '1px solid',
               borderColor: filter === f ? 'var(--green-main)' : 'var(--border)',
               background: filter === f ? 'rgba(34,197,94,0.1)' : 'transparent',
-              color: filter === f ? 'var(--green-main)' : 'var(--t4)',
+              color: filter === f ? 'var(--green-main)' : 'var(--t3)',
               fontFamily: 'var(--font-mono)', fontSize: 9, cursor: 'pointer', textTransform: 'uppercase',
             }}
           >
             {f}
           </button>
         ))}
-        <span style={{ marginLeft: 'auto', fontSize: 9, color: 'var(--t4)', fontFamily: 'var(--font-mono)' }}>
-          {visible.length} stocks
+        <span style={{ marginLeft: 'auto', fontSize: 9, color: 'var(--t3)', fontFamily: 'var(--font-mono)' }}>
+          {visible.length}/{rows.length} stocks
         </span>
       </div>
 
@@ -608,21 +694,23 @@ export default function MarketOverview() {
   const [rotation, setRotation] = useState<SectorPoint[]>([])
   const [movers, setMovers] = useState<TopMovers>({ gainers: [], losers: [] })
   const [screener, setScreener] = useState<StockRow[]>([])
+  const [screener500, setScreener500] = useState<StockRow[]>([])
   const [lastRefresh, setLastRefresh] = useState('')
 
   const load = useCallback(async () => {
     try {
-      const [ov, rot, mv, scr] = await Promise.allSettled([
+      const [ov, rot, mv, scr, scr500] = await Promise.allSettled([
         fetchMarketOverview(),
         fetchSectorRotation(),
         fetchTopMovers(12),
         fetchNiftyScreener(),
+        fetchNifty500Screener(),
       ])
-      // Validate shapes before setting state — API errors return objects, not arrays
       if (ov.status === 'fulfilled' && ov.value && Array.isArray(ov.value.indices)) setOverview(ov.value)
       if (rot.status === 'fulfilled' && Array.isArray(rot.value)) setRotation(rot.value)
       if (mv.status === 'fulfilled' && Array.isArray(mv.value?.gainers)) setMovers(mv.value)
       if (scr.status === 'fulfilled' && Array.isArray(scr.value)) setScreener(scr.value)
+      if (scr500.status === 'fulfilled' && Array.isArray(scr500.value)) setScreener500(scr500.value)
       setLastRefresh(new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
     } catch {
       // silent — stale data stays
@@ -693,9 +781,9 @@ export default function MarketOverview() {
           </div>
         )}
 
-        {/* Market breadth */}
+        {/* Market breadth — dual panel (Nifty 100 + Nifty 500) */}
         {overview?.breadth && overview.breadth.total > 0 && (
-          <BreadthBar breadth={overview.breadth} />
+          <BreadthBar breadth={overview.breadth} breadth500={overview.breadth500} />
         )}
 
         {/* RRG + Movers — side by side */}
@@ -713,8 +801,8 @@ export default function MarketOverview() {
         {/* All indices table */}
         {overview?.indices && <IndicesTable indices={overview.indices} />}
 
-        {/* Screener */}
-        <ScreenerTable rows={screener} />
+        {/* Screener — Nifty 100 / Nifty 500 toggle */}
+        <ScreenerTable rows100={screener} rows500={screener500} />
 
       </div>
     </div>

@@ -42,6 +42,7 @@ export interface MarketOverview {
   indices: IndexSnapshot[]
   commodities: CommoditySnapshot[]
   breadth: MarketBreadth
+  breadth500?: MarketBreadth
 }
 
 export interface SectorPoint {
@@ -84,3 +85,6 @@ export const fetchTopMovers = (n = 10): Promise<TopMovers> =>
 
 export const fetchNiftyScreener = (): Promise<StockRow[]> =>
   client.get('/market/stocks/screener').then(r => r.data)
+
+export const fetchNifty500Screener = (): Promise<StockRow[]> =>
+  client.get('/market/stocks/screener500').then(r => r.data)

@@ -3,6 +3,7 @@ Market data fetcher — yfinance with in-memory TTL cache.
 
 All fetches are cached to avoid hammering Yahoo Finance.
 Indices: 60s TTL  |  Stocks: 5min TTL  |  Sector rotation: 15min TTL
+Screener (500 stocks): 5min TTL with background refresh support
 """
 
 import time
@@ -14,7 +15,8 @@ import pandas as pd
 
 from src.market.universe import (
     INDEX_TICKERS, SECTOR_INDICES, BENCHMARK_TICKER,
-    COMMODITY_TICKERS, ALL_UNIVERSE, NIFTY_50, NIFTY_NEXT_50,
+    COMMODITY_TICKERS, NIFTY_500, NIFTY_50, NIFTY_NEXT_50,
+    ALL_UNIVERSE,
 )
 
 logger = logging.getLogger(__name__)
@@ -109,6 +111,25 @@ def _batch_snapshots(yf_tickers: list[str]) -> dict[str, dict]:
         return {}
 
 
+def _chunked_batch_snapshots(symbols: list[str], chunk_size: int = 100) -> dict[str, dict]:
+    """
+    Batch fetch for large universes (500+) by splitting into chunks.
+    Returns {yf_ticker: snapshot_dict}.
+    """
+    result: dict[str, dict] = {}
+    yf_tickers = [f"{s}.NS" for s in symbols]
+
+    for i in range(0, len(yf_tickers), chunk_size):
+        chunk = yf_tickers[i : i + chunk_size]
+        try:
+            snaps = _batch_snapshots(chunk)
+            result.update(snaps)
+        except Exception as e:
+            logger.warning("Chunk %d-%d failed: %s", i, i + chunk_size, e)
+
+    return result
+
+
 # ── Public API ─────────────────────────────────────────────────────────────
 
 def get_indices() -> list[dict]:
@@ -136,8 +157,8 @@ def get_commodities() -> list[dict]:
 
 
 def get_top_movers(n: int = 15) -> dict:
-    """Top N gainers and losers from Nifty 50 + Next 50 — cached 5min."""
-    universe = NIFTY_50 + NIFTY_NEXT_50[:30]
+    """Top N gainers and losers from Nifty 100 — cached 5min."""
+    universe = list(dict.fromkeys(NIFTY_50 + NIFTY_NEXT_50))
 
     def fetch():
         tickers = [f"{s}.NS" for s in universe]
@@ -240,8 +261,8 @@ def get_sector_rotation() -> list[dict]:
 
 def get_nifty_screener(min_change_pct: float = 0) -> list[dict]:
     """
-    All Nifty 50 + Next 50 stocks with price data — cached 5min.
-    Used for full screener table.
+    Nifty 100 stocks with price data — fast, cached 5min.
+    Used for the live screener table on Market Overview.
     """
     universe = list(dict.fromkeys(NIFTY_50 + NIFTY_NEXT_50))
 
@@ -262,8 +283,32 @@ def get_nifty_screener(min_change_pct: float = 0) -> list[dict]:
     return data
 
 
+def get_nifty500_screener(min_change_pct: float = 0) -> list[dict]:
+    """
+    Full Nifty 500 class universe (~300 stocks) with price data — cached 5min.
+    Uses chunked batch fetching (100 per request) to avoid Yahoo rate limits.
+    """
+    universe = NIFTY_500
+
+    def fetch():
+        snaps = _chunked_batch_snapshots(universe, chunk_size=100)
+        rows = []
+        yf_tickers = [f"{s}.NS" for s in universe]
+        for sym, yf_t in zip(universe, yf_tickers):
+            s = snaps.get(yf_t)
+            if s and s["ltp"] > 0:
+                rows.append({"symbol": sym, **s})
+        rows.sort(key=lambda x: x["change_pct"], reverse=True)
+        return rows
+
+    data = _get("nifty500_screener", 300, fetch) or []
+    if min_change_pct != 0:
+        data = [r for r in data if r["change_pct"] >= min_change_pct]
+    return data
+
+
 def get_market_breadth() -> dict:
-    """Advance / decline from Nifty 200 — cached 5min."""
+    """Advance / decline from Nifty 100 — cached 5min."""
     def fetch():
         universe = list(dict.fromkeys(NIFTY_50 + NIFTY_NEXT_50))
         tickers = [f"{s}.NS" for s in universe]
@@ -278,5 +323,31 @@ def get_market_breadth() -> dict:
             "unchanged": unchanged,
             "total": len(snaps),
             "ad_ratio": round(advances / total, 2),
+            "universe": "Nifty 100",
         }
-    return _get("breadth", 300, fetch) or {"advances": 0, "declines": 0, "unchanged": 0, "total": 0, "ad_ratio": 0}
+    return _get("breadth", 300, fetch) or {
+        "advances": 0, "declines": 0, "unchanged": 0, "total": 0,
+        "ad_ratio": 0, "universe": "Nifty 100",
+    }
+
+
+def get_nifty500_breadth() -> dict:
+    """Advance / decline from full Nifty 500 universe — cached 5min."""
+    def fetch():
+        snaps = _chunked_batch_snapshots(NIFTY_500, chunk_size=100)
+        advances = sum(1 for s in snaps.values() if s["change_pct"] > 0)
+        declines  = sum(1 for s in snaps.values() if s["change_pct"] < 0)
+        unchanged = len(snaps) - advances - declines
+        total = advances + declines or 1
+        return {
+            "advances": advances,
+            "declines": declines,
+            "unchanged": unchanged,
+            "total": len(snaps),
+            "ad_ratio": round(advances / total, 2),
+            "universe": "Nifty 500",
+        }
+    return _get("breadth500", 300, fetch) or {
+        "advances": 0, "declines": 0, "unchanged": 0, "total": 0,
+        "ad_ratio": 0, "universe": "Nifty 500",
+    }
