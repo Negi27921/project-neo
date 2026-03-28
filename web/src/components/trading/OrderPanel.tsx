@@ -194,11 +194,11 @@ export default function OrderPanel({ symbol, ltp = 0, suggestedSL, suggestedTP, 
         onClick={handleSubmit}
         disabled={loading || qty <= 0}
         style={{
-          width: '100%', padding: '10px 0', border: 'none', borderRadius: 6, cursor: 'pointer',
+          width: '100%', padding: '10px 0', borderRadius: 6, cursor: 'pointer',
           fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700, letterSpacing: '0.1em',
           background: side === 'BUY' ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
           color: side === 'BUY' ? 'var(--green-main)' : 'var(--red-main)',
-          border: `1px solid ${side === 'BUY' ? 'rgba(34,197,94,0.4)' : 'rgba(239,68,68,0.4)'}`,
+          outline: `1px solid ${side === 'BUY' ? 'rgba(34,197,94,0.4)' : 'rgba(239,68,68,0.4)'}`,
           opacity: loading ? 0.6 : 1,
           transition: 'all 0.12s',
         }}
