@@ -147,3 +147,53 @@ app.include_router(symbols.router,    prefix="/api/symbols",    tags=["symbols"]
 def health():
     from src.api.deps import broker_name
     return {"status": "ok", "broker": broker_name(), "version": "2.0.0"}
+
+
+@app.get("/api/debug/shoonya")
+def debug_shoonya():
+    """Diagnose Shoonya login — raw response from the broker API."""
+    import hashlib, os, pyotp
+    import requests as req_lib
+
+    user_id    = os.getenv("SHOONYA_USER_ID", "")
+    password   = os.getenv("SHOONYA_PASSWORD", "")
+    totp_sec   = os.getenv("SHOONYA_TOTP_SECRET", "")
+    vendor     = os.getenv("SHOONYA_VENDOR_CODE", "")
+    api_key    = os.getenv("SHOONYA_API_KEY", "")
+    imei       = os.getenv("SHOONYA_IMEI", "")
+
+    if not user_id:
+        return {"error": "SHOONYA_USER_ID not set in environment"}
+
+    try:
+        totp = pyotp.TOTP(totp_sec).now() if totp_sec else "000000"
+        pwd_hash = hashlib.sha256(password.encode()).hexdigest()
+        app_hash = hashlib.sha256(f"{user_id}|{api_key}".encode()).hexdigest()
+
+        payload = {
+            "apkversion": "1.0.0",
+            "uid": user_id,
+            "pwd": pwd_hash,
+            "factor2": totp,
+            "imei": imei,
+            "vc": vendor,
+            "appkey": app_hash,
+            "source": "API",
+        }
+        import json as _json
+        body = f"jData={_json.dumps(payload)}"
+        resp = req_lib.post(
+            "https://api.shoonya.com/NorenWClientTP/QuickAuth",
+            data=body,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            timeout=15,
+        )
+        return {
+            "http_status": resp.status_code,
+            "shoonya_response": resp.json() if resp.headers.get("content-type", "").startswith("application/json") else resp.text[:500],
+            "totp_used": totp,
+            "uid": user_id,
+            "vendor": vendor,
+        }
+    except Exception as exc:
+        return {"error": str(exc), "type": type(exc).__name__}
