@@ -104,24 +104,24 @@ function IndexCard({ d }: { d: MarketOverview['indices'][0] }) {
         ? '0 0 18px rgba(34,197,94,0.06)'
         : '0 0 18px rgba(239,68,68,0.06)',
     }}>
-      <div style={{ fontSize: 9, color: 'var(--t4)', fontFamily: 'var(--font-mono)', letterSpacing: '0.12em', marginBottom: 6 }}>
+      <div style={{ fontSize: 12, color: 'var(--t4)', fontFamily: 'var(--font-mono)', letterSpacing: '0.12em', marginBottom: 6 }}>
         {d.sector.toUpperCase()}
       </div>
-      <div style={{ fontSize: 11, color: 'var(--t2)', fontFamily: 'var(--font-mono)', marginBottom: 8, fontWeight: 600 }}>
+      <div style={{ fontSize: 15, color: 'var(--t2)', fontFamily: 'var(--font-display)', marginBottom: 8, fontWeight: 600 }}>
         {d.short}
       </div>
-      <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', lineHeight: 1, marginBottom: 6 }}>
+      <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', lineHeight: 1, marginBottom: 6 }}>
         {d.ltp.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
       </div>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        <span style={{ color: chgColor(d.change), fontSize: 12, fontWeight: 600 }}>
+        <span style={{ color: chgColor(d.change), fontSize: 13, fontWeight: 600 }}>
           {d.change >= 0 ? '+' : ''}{d.change.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
         </span>
         <span style={{
           background: up ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)',
           color: chgColor(d.change_pct),
           padding: '2px 6px', borderRadius: 4,
-          fontSize: 10, fontFamily: 'var(--font-mono)', fontWeight: 600,
+          fontSize: 13, fontFamily: 'var(--font-mono)', fontWeight: 600,
         }}>
           {pct(d.change_pct)}
         </span>
@@ -443,15 +443,15 @@ function BreadthPanel({ breadth, label }: { breadth: MarketOverview['breadth']; 
       <div style={{ display: 'flex', gap: 16, marginBottom: 8 }}>
         <div>
           <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--green-main)', lineHeight: 1 }}>{breadth.advances}</div>
-          <div style={{ fontSize: 8, color: 'var(--t3)', fontFamily: 'var(--font-mono)', marginTop: 3 }}>ADVANCES</div>
+          <div style={{ display: 'inline-block', marginTop: 4, padding: '1px 6px', borderRadius: 3, background: 'rgba(0,204,54,0.12)', fontSize: 11, color: 'var(--green-main)', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>ADVANCES</div>
         </div>
         <div>
           <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--red-main)', lineHeight: 1 }}>{breadth.declines}</div>
-          <div style={{ fontSize: 8, color: 'var(--t3)', fontFamily: 'var(--font-mono)', marginTop: 3 }}>DECLINES</div>
+          <div style={{ display: 'inline-block', marginTop: 4, padding: '1px 6px', borderRadius: 3, background: 'rgba(255,59,59,0.12)', fontSize: 11, color: 'var(--red-main)', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>DECLINES</div>
         </div>
         <div>
           <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--t2)', lineHeight: 1 }}>{breadth.unchanged}</div>
-          <div style={{ fontSize: 8, color: 'var(--t3)', fontFamily: 'var(--font-mono)', marginTop: 3 }}>UNCH</div>
+          <div style={{ display: 'inline-block', marginTop: 4, padding: '1px 6px', borderRadius: 3, background: 'rgba(255,255,255,0.06)', fontSize: 11, color: 'var(--t3)', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>UNCH</div>
         </div>
         <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
           <div style={{ fontSize: 16, fontWeight: 700, color: bullish ? 'var(--green-main)' : 'var(--red-main)', lineHeight: 1 }}>

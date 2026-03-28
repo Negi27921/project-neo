@@ -64,7 +64,7 @@ export default function DataTable<T>({
                     textTransform: 'uppercase',
                     letterSpacing: '0.10em',
                     borderBottom: '1px solid var(--bg-border)',
-                    background: 'var(--bg-header)',
+                    background: 'var(--bg-elevated)',
                     cursor: h.column.getCanSort() ? 'pointer' : 'default',
                     whiteSpace: 'nowrap',
                     userSelect: 'none',

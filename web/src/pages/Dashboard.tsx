@@ -82,7 +82,7 @@ function MetricCard({ label, end, prefix = '', suffix = '', decimals = 0, color,
       transition={{ duration: 0.55, delay, ease: [0.16, 1, 0.3, 1] }}
       whileHover={{ y: -3, boxShadow: `0 12px 40px rgba(0,0,0,0.5), 0 0 0 1px ${bgGlow}` }}
       style={{
-        background: `linear-gradient(155deg, ${bgGlow} 0%, #000 55%)`,
+        background: `linear-gradient(155deg, ${bgGlow} 0%, var(--bg-void) 55%)`,
         border: '1px solid var(--border)',
         borderTop: `2px solid ${borderTop}`,
         borderRadius: 8,

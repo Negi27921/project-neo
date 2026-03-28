@@ -55,10 +55,10 @@ export default function TopBar() {
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flex: 1 }}>
         <div style={{
           fontFamily: 'var(--font-mono)',
-          fontSize: 10,
+          fontSize: 14,
           fontWeight: 700,
           color: 'var(--green-matrix)',
-          letterSpacing: '0.16em',
+          letterSpacing: '0.14em',
           textShadow: '0 0 10px rgba(0,255,65,0.35)',
         }}>
           {page.label}
@@ -66,7 +66,7 @@ export default function TopBar() {
         {page.sub && (
           <div style={{
             fontFamily: 'var(--font-mono)',
-            fontSize: 9,
+            fontSize: 11,
             color: 'var(--t3)',
             letterSpacing: '0.06em',
           }}>

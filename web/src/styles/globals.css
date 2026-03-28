@@ -78,6 +78,20 @@
   --r-sm:        3px;
   --r-lg:        12px;
 
+  /* ── Semantic aliases ────────────────────────────────────── */
+  --positive:        var(--green-main);
+  --positive-bg:     rgba(0, 204, 54, 0.10);
+  --negative:        var(--red-main);
+  --negative-bg:     rgba(255, 59, 59, 0.10);
+  --warning:         var(--amber);
+  --warning-bg:      var(--amber-dim);
+  --info:            var(--cyan);
+  --info-bg:         var(--cyan-dim);
+  --accent:          #3B82F6;
+  --accent-soft:     rgba(59, 130, 246, 0.12);
+  --border-medium:   rgba(255, 255, 255, 0.13);
+  --border-strong:   rgba(255, 255, 255, 0.22);
+
   /* ── Backwards-compat aliases ───────────────────────────── */
   --bg-border:      var(--border);
   --border-radius:  var(--r);
@@ -86,6 +100,7 @@
   --text-primary:   var(--t1);
   --text-secondary: var(--t2);
   --text-muted:     var(--t3);
+  --text-tertiary:  var(--t3);
   --text-red:       var(--t-red);
   --text-green:     var(--t-green);
   --text-amber:     var(--t-amber);
