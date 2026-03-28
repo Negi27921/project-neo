@@ -388,8 +388,8 @@ export default function Analytics() {
                         <div style={{ color: 'var(--t3)', marginBottom: 5, fontSize: 9 }}>{d.date}</div>
                         {hasTrades ? (
                           <>
-                            <div style={{ fontWeight: 800, fontSize: 14, color: pnlColor(d.pnl), fontFamily: 'var(--font-display)', marginBottom: 4 }}>
-                              {d.pnl! >= 0 ? '+' : ''}{formatINR(d.pnl!)}
+                            <div style={{ fontWeight: 800, fontSize: 14, color: pnlColor(d.pnl ?? 0), fontFamily: 'var(--font-display)', marginBottom: 4 }}>
+                              {(d.pnl ?? 0) >= 0 ? '+' : ''}{formatINR(d.pnl ?? 0)}
                             </div>
                             <div style={{ color: 'var(--t2)' }}>{d.trades_count} trade{d.trades_count !== 1 ? 's' : ''}</div>
                             {clickable && <div style={{ marginTop: 5, fontSize: 9, color: 'var(--t3)' }}>Click to view trades →</div>}
@@ -427,11 +427,11 @@ export default function Analytics() {
                       <>
                         <div style={{
                           fontFamily: 'var(--font-display)', fontSize: 12, fontWeight: 700,
-                          color: pnlColor(d.pnl),
+                          color: pnlColor(d.pnl ?? 0),
                           lineHeight: 1, marginBottom: 3,
-                          textShadow: d.pnl! > 5000 ? '0 0 8px rgba(0,255,65,0.4)' : d.pnl! < -5000 ? '0 0 8px rgba(255,59,59,0.4)' : 'none',
+                          textShadow: (d.pnl ?? 0) > 5000 ? '0 0 8px rgba(0,255,65,0.4)' : (d.pnl ?? 0) < -5000 ? '0 0 8px rgba(255,59,59,0.4)' : 'none',
                         }}>
-                          {d.pnl! >= 0 ? '+' : ''}{formatINRCompact(d.pnl!)}
+                          {(d.pnl ?? 0) >= 0 ? '+' : ''}{formatINRCompact(d.pnl ?? 0)}
                         </div>
                         <div style={{ fontSize: 8, color: 'var(--t3)', fontFamily: 'var(--font-mono)' }}>
                           {d.trades_count}T
@@ -444,8 +444,8 @@ export default function Analytics() {
                       <div style={{
                         position: 'absolute', top: 7, right: 7,
                         width: 4, height: 4, borderRadius: '50%',
-                        background: pnlColor(d.pnl),
-                        boxShadow: `0 0 4px ${pnlColor(d.pnl)}`,
+                        background: pnlColor(d.pnl ?? 0),
+                        boxShadow: `0 0 4px ${pnlColor(d.pnl ?? 0)}`,
                       }} />
                     )}
                   </div>

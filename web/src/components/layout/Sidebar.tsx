@@ -1,8 +1,9 @@
 import { NavLink } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import { Globe, LayoutDashboard, ScanSearch, BarChart2, BookOpen, Briefcase, Bot, ChevronRight, LogOut } from 'lucide-react'
+import { Globe, LayoutDashboard, ScanSearch, BarChart2, BookOpen, Briefcase, Bot, ChevronRight, LogOut, ClipboardList } from 'lucide-react'
 import client from '../../api/client'
 import { useAuth } from '../../contexts/AuthContext'
+import ModeToggle from '../trading/ModeToggle'
 
 const NAV_GROUPS = [
   {
@@ -13,18 +14,19 @@ const NAV_GROUPS = [
     ],
   },
   {
+    label: 'TRADING',
+    items: [
+      { to: '/orders',     icon: ClipboardList,   label: 'Orders',          end: false },
+      { to: '/screener',   icon: ScanSearch,      label: 'Screener',        end: false },
+      { to: '/simulator',  icon: Bot,             label: 'Bot Simulator',   end: false },
+    ],
+  },
+  {
     label: 'PORTFOLIO',
     items: [
       { to: '/portfolio',  icon: LayoutDashboard, label: 'Dashboard',       end: false },
       { to: '/trades',     icon: BookOpen,        label: 'Trade Logs',      end: false },
       { to: '/analytics',  icon: BarChart2,       label: 'Analytics',       end: false },
-    ],
-  },
-  {
-    label: 'TOOLS',
-    items: [
-      { to: '/screener',   icon: ScanSearch,      label: 'Screener',        end: false },
-      { to: '/simulator',  icon: Bot,             label: 'Bot Simulator',   end: false },
     ],
   },
 ]
@@ -151,6 +153,9 @@ export default function Sidebar() {
         ))}
       </nav>
 
+      {/* ── Trading Mode Toggle ──────────────────────────────── */}
+      <ModeToggle />
+
       {/* ── Status footer ───────────────────────────────────── */}
       <div style={{ padding: '10px 16px 4px', borderTop: '1px solid var(--border)', fontSize: 9, fontFamily: 'var(--font-mono)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4 }}>
@@ -160,7 +165,7 @@ export default function Sidebar() {
           </span>
         </div>
         <div style={{ color: 'var(--t4)', fontSize: 8 }}>
-          {brokerName === 'dhan_live' ? 'NSE LIVE · DHAN · :8000' : brokerName === 'shoonya_live' ? 'NSE LIVE · SHOONYA · :8000' : 'NSE MOCK · SEED=42 · :8000'}
+          {brokerName === 'dhan_live' ? 'NSE LIVE · DHAN' : brokerName === 'shoonya_live' ? 'NSE LIVE · SHOONYA' : 'NSE MOCK · SEED=42'}
         </div>
       </div>
 

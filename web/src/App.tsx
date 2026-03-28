@@ -1,6 +1,7 @@
 import { Component, type ReactNode, useState } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AuthContext } from './contexts/AuthContext'
+import { TradingProvider } from './contexts/TradingContext'
 import RootLayout from './components/layout/RootLayout'
 import LoginPage from './pages/LoginPage'
 import MarketOverview from './pages/MarketOverview'
@@ -10,6 +11,7 @@ import Analytics from './pages/Analytics'
 import TradeLogs from './pages/TradeLogs'
 import Positions from './pages/Positions'
 import Simulator from './pages/Simulator'
+import Orders from './pages/Orders'
 
 const AUTH_KEY = 'neo_auth_v1'
 
@@ -61,19 +63,22 @@ export default function App() {
   return (
     <ErrorBoundary>
       <AuthContext.Provider value={{ logout: handleLogout }}>
-        <BrowserRouter>
-          <Routes>
-            <Route element={<RootLayout />}>
-              <Route index             element={<ErrorBoundary><MarketOverview /></ErrorBoundary>} />
-              <Route path="portfolio"  element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
-              <Route path="screener"   element={<ErrorBoundary><Screener /></ErrorBoundary>} />
-              <Route path="analytics"  element={<ErrorBoundary><Analytics /></ErrorBoundary>} />
-              <Route path="trades"     element={<ErrorBoundary><TradeLogs /></ErrorBoundary>} />
-              <Route path="positions"  element={<ErrorBoundary><Positions /></ErrorBoundary>} />
-              <Route path="simulator"  element={<ErrorBoundary><Simulator /></ErrorBoundary>} />
-            </Route>
-          </Routes>
-        </BrowserRouter>
+        <TradingProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route element={<RootLayout />}>
+                <Route index             element={<ErrorBoundary><MarketOverview /></ErrorBoundary>} />
+                <Route path="portfolio"  element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
+                <Route path="screener"   element={<ErrorBoundary><Screener /></ErrorBoundary>} />
+                <Route path="analytics"  element={<ErrorBoundary><Analytics /></ErrorBoundary>} />
+                <Route path="trades"     element={<ErrorBoundary><TradeLogs /></ErrorBoundary>} />
+                <Route path="positions"  element={<ErrorBoundary><Positions /></ErrorBoundary>} />
+                <Route path="simulator"  element={<ErrorBoundary><Simulator /></ErrorBoundary>} />
+                <Route path="orders"     element={<ErrorBoundary><Orders /></ErrorBoundary>} />
+              </Route>
+            </Routes>
+          </BrowserRouter>
+        </TradingProvider>
       </AuthContext.Provider>
     </ErrorBoundary>
   )

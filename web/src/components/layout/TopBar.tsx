@@ -10,6 +10,7 @@ const PAGE_TITLES: Record<string, { label: string; sub?: string }> = {
   '/trades':     { label: 'TRADE LOGS',        sub: 'Full Trade History'            },
   '/positions':  { label: 'POSITIONS',         sub: 'Live & Paper Trades'          },
   '/simulator':  { label: 'BOT SIMULATOR',     sub: 'Backtest & Paper Trading'     },
+  '/orders':     { label: 'ORDERS',            sub: 'Paper & Live Order Book'      },
 }
 
 function isMarketHours() {

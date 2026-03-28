@@ -326,10 +326,70 @@ class DhanAdapter(BrokerBase):
             unrealized_pnl=Decimal(str(d.get("unrealizedProfit") or 0)),
         )
 
-    # Stubs — order management not yet implemented
-    def place_order(self, *a, **kw): raise NotImplementedError
-    def modify_order(self, *a, **kw): raise NotImplementedError
-    def cancel_order(self, *a, **kw): raise NotImplementedError
-    def get_order_status(self, *a, **kw): raise NotImplementedError
-    def subscribe(self, *a, **kw): raise NotImplementedError
+    # -----------------------------------------------------------------------
+    # Order Management
+    # -----------------------------------------------------------------------
+
+    def place_order(
+        self,
+        exchange,
+        symbol: str,
+        side,
+        order_type,
+        product_type,
+        quantity: int,
+        price=None,
+        trigger_price=None,
+        retention=None,
+        remarks: str = "",
+    ) -> str:
+        """Place order via Dhan API. Returns order_id string."""
+        from src.brokers.base import OrderSide, OrderType, ProductType
+        security_id = SYMBOL_TO_SECURITY_ID.get(symbol)
+        if security_id is None:
+            raise ValueError(f"Security ID not found for symbol: {symbol}")
+
+        side_str = side.value if hasattr(side, "value") else str(side)
+        type_str = order_type.value if hasattr(order_type, "value") else str(order_type)
+        prod_map = {"CASH": "CNC", "INTRADAY": "INTRADAY", "DELIVERY": "CNC"}
+        prod_str = product_type.value if hasattr(product_type, "value") else str(product_type)
+        prod_str = prod_map.get(prod_str, prod_str)
+
+        resp = self._api.place_order(
+            security_id=str(security_id),
+            exchange_segment=NSE_EQ,
+            transaction_type=side_str,
+            quantity=quantity,
+            order_type=type_str,
+            product_type=prod_str,
+            price=float(price or 0),
+            trigger_price=float(trigger_price or 0),
+        )
+        if resp.get("status") != "success":
+            raise RuntimeError(f"[Dhan] place_order failed: {resp.get('remarks', resp)}")
+        return str(resp.get("data", {}).get("orderId", ""))
+
+    def modify_order(self, order_id: str, **kw) -> bool:
+        resp = self._api.modify_order(
+            order_id=order_id,
+            order_type=kw.get("order_type", "LIMIT"),
+            leg_name="ENTRY_LEG",
+            quantity=kw.get("quantity", 1),
+            price=float(kw.get("price", 0)),
+            trigger_price=float(kw.get("trigger_price", 0)),
+            disclosed_quantity=0,
+            validity="DAY",
+        )
+        return resp.get("status") == "success"
+
+    def cancel_order(self, order_id: str) -> bool:
+        resp = self._api.cancel_order(order_id)
+        return resp.get("status") == "success"
+
+    def get_order_status(self, order_id: str):
+        resp = self._api.get_order_by_id(order_id)
+        return resp.get("data", {})
+
+    def subscribe(self, *a, **kw): pass
+    def unsubscribe(self, *a, **kw): pass
     def unsubscribe(self, *a, **kw): raise NotImplementedError

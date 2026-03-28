@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.api.mock_data.store import init_store
 from src.api.routers import dashboard, screener, trades, pnl, calendar, quotes, positions
-from src.api.routers import market
+from src.api.routers import market, orders
 
 app = FastAPI(
     title="PROJECT NEO API",
@@ -31,7 +31,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=_ALLOWED_ORIGINS,
     allow_origin_regex=r"https://.*\.vercel\.app",
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -49,6 +49,7 @@ app.include_router(calendar.router, prefix="/api/calendar", tags=["calendar"])
 app.include_router(quotes.router, prefix="/api/quotes", tags=["quotes"])
 app.include_router(positions.router, prefix="/api", tags=["positions"])
 app.include_router(market.router, prefix="/api/market", tags=["market"])
+app.include_router(orders.router, prefix="/api/orders", tags=["orders"])
 
 
 @app.get("/api/health")
