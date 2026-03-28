@@ -67,6 +67,13 @@ async def _prewarm_caches() -> None:
     except Exception as e:
         logger.warning("Sector rotation pre-warm failed: %s", e)
 
+    try:
+        from src.api.routers.screener import _refresh_ohlcv_cache
+        await loop.run_in_executor(None, _refresh_ohlcv_cache)
+        logger.info("Screener OHLCV cache warm.")
+    except Exception as e:
+        logger.warning("Screener OHLCV pre-warm failed: %s", e)
+
 
 async def _background_refresh() -> None:
     from src.market.data_fetcher import (
