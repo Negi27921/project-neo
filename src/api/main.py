@@ -118,7 +118,16 @@ async def startup():
     # 2. Seed in-memory mock trade store
     init_store()
 
-    # 3. Non-blocking background cache tasks
+    # 3. Eagerly initialise broker (Shoonya login on startup, not on first request)
+    try:
+        from src.api.deps import get_broker
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, get_broker)
+        logger.info("Broker initialised: %s", __import__('src.api.deps', fromlist=['broker_name']).broker_name())
+    except Exception as e:
+        logger.warning("Broker init failed at startup: %s", e)
+
+    # 4. Non-blocking background cache tasks
     asyncio.create_task(_prewarm_caches())
     asyncio.create_task(_background_refresh())
 
