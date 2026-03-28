@@ -12,6 +12,7 @@ import TradeLogs from './pages/TradeLogs'
 import Positions from './pages/Positions'
 import Simulator from './pages/Simulator'
 import Orders from './pages/Orders'
+import AIAgent from './pages/AIAgent'
 
 const AUTH_KEY = 'neo_auth_v1'
 
@@ -75,6 +76,7 @@ export default function App() {
                 <Route path="positions"  element={<ErrorBoundary><Positions /></ErrorBoundary>} />
                 <Route path="simulator"  element={<ErrorBoundary><Simulator /></ErrorBoundary>} />
                 <Route path="orders"     element={<ErrorBoundary><Orders /></ErrorBoundary>} />
+                <Route path="ai"         element={<ErrorBoundary><AIAgent /></ErrorBoundary>} />
               </Route>
             </Routes>
           </BrowserRouter>

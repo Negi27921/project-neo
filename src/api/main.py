@@ -1,5 +1,5 @@
 """
-PROJECT NEO — FastAPI Backend
+PROJECT NEO — FastAPI Backend v2
 Run: uvicorn src.api.main:app --reload --port 8000
 Docs: http://localhost:8000/docs
 """
@@ -13,14 +13,14 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.api.mock_data.store import init_store
 from src.api.routers import dashboard, screener, trades, pnl, calendar, quotes, positions
-from src.api.routers import market, orders
+from src.api.routers import market, orders, ai_agent, symbols
 
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="PROJECT NEO API",
-    version="1.0.0",
-    description="Trading dashboard API — Bloomberg-style terminal",
+    version="2.0.0",
+    description="Bloomberg-style trading dashboard — AI execution engine + paper/live trading",
 )
 
 _FRONTEND_URL = os.getenv("FRONTEND_URL", "")
@@ -43,11 +43,6 @@ app.add_middleware(
 # ── Cache pre-warm ─────────────────────────────────────────────────────────
 
 async def _prewarm_caches() -> None:
-    """
-    Warm all market data caches immediately after startup.
-    First user request is served from cache, not from a cold yfinance call.
-    yfinance is sync — runs in thread pool.
-    """
     from src.market.data_fetcher import (
         get_indices, get_commodities, get_top_movers, get_market_breadth,
     )
@@ -65,7 +60,6 @@ async def _prewarm_caches() -> None:
     except Exception as e:
         logger.warning("Pre-warm partial failure: %s", e)
 
-    # Sector rotation is heavier — runs after core cache is warm
     try:
         from src.market.data_fetcher import get_sector_rotation
         await loop.run_in_executor(None, get_sector_rotation)
@@ -75,15 +69,10 @@ async def _prewarm_caches() -> None:
 
 
 async def _background_refresh() -> None:
-    """
-    Background loop — refreshes market data caches on schedule.
-    Core data (indices, quotes, movers, breadth): every 60s
-    Heavy data (screener, sector rotation, 500 breadth): every 5 min
-    """
     from src.market.data_fetcher import (
         get_indices, get_commodities, get_top_movers, get_market_breadth,
     )
-    loop = asyncio.get_event_loop()
+    loop  = asyncio.get_event_loop()
     cycle = 0
     logger.info("Background cache refresh loop started.")
 
@@ -91,7 +80,6 @@ async def _background_refresh() -> None:
         await asyncio.sleep(60)
         cycle += 1
 
-        # 60s cycle — core fast data
         try:
             await asyncio.gather(
                 loop.run_in_executor(None, get_indices),
@@ -103,7 +91,6 @@ async def _background_refresh() -> None:
         except Exception as e:
             logger.warning("Background refresh (60s) error: %s", e)
 
-        # 5 min cycle — screener + RRG + Nifty 500 breadth
         if cycle % 5 == 0:
             try:
                 from src.market.data_fetcher import (
@@ -123,10 +110,22 @@ async def _background_refresh() -> None:
 
 @app.on_event("startup")
 async def startup():
+    # 1. Initialise SQLite schema (idempotent)
+    from src.api.database import init_db
+    init_db()
+    logger.info("Database initialised.")
+
+    # 2. Seed in-memory mock trade store
     init_store()
-    # Non-blocking — pre-warm and refresh run concurrently with request serving
+
+    # 3. Non-blocking background cache tasks
     asyncio.create_task(_prewarm_caches())
     asyncio.create_task(_background_refresh())
+
+    # 4. AI trading engine — scans every 5 min
+    from src.api.ai_engine import ai_agent_loop
+    asyncio.create_task(ai_agent_loop())
+    logger.info("AI agent loop scheduled.")
 
 
 # ── Routers ────────────────────────────────────────────────────────────────
@@ -140,9 +139,11 @@ app.include_router(quotes.router,     prefix="/api/quotes",     tags=["quotes"])
 app.include_router(positions.router,  prefix="/api",            tags=["positions"])
 app.include_router(market.router,     prefix="/api/market",     tags=["market"])
 app.include_router(orders.router,     prefix="/api/orders",     tags=["orders"])
+app.include_router(ai_agent.router,   prefix="/api/ai",         tags=["ai"])
+app.include_router(symbols.router,    prefix="/api/symbols",    tags=["symbols"])
 
 
 @app.get("/api/health")
 def health():
     from src.api.deps import broker_name
-    return {"status": "ok", "broker": broker_name()}
+    return {"status": "ok", "broker": broker_name(), "version": "2.0.0"}

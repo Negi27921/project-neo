@@ -1,6 +1,8 @@
 """
 Strategy screener router — scans Nifty 50 universe with real yfinance data.
-Results are cached 30 seconds per strategy to avoid repeated heavy fetches.
+Results cached 30 seconds per strategy. Adds confidence_pct to every result.
+
+GET /api/screener/{strategy}?filter=all|matched&min_confidence=0&min_price=0&max_price=0
 """
 
 import time
@@ -16,13 +18,19 @@ from src.screener.strategies.vcp import VcpScreener
 
 router = APIRouter()
 
-# Full Nifty 50 universe — real yfinance data via DhanAdapter.get_historical()
 UNIVERSE = [(Exchange.NSE, sym) for sym in NIFTY_50]
 
 STRATEGY_MAP = {
     "ipo_base":    IpoBaseScreener,
     "rocket_base": RocketBaseScreener,
     "vcp":         VcpScreener,
+}
+
+# Max conditions per strategy — used by AI engine and confidence filter
+STRATEGY_TOTAL_CONDS: dict[str, int] = {
+    "ipo_base":    6,
+    "rocket_base": 5,
+    "vcp":         6,
 }
 
 _cache: dict[str, dict] = {}
@@ -37,11 +45,13 @@ def _run_screener(strategy: str) -> dict:
     if key in _cache:
         return _cache[key]
 
-    broker = get_broker()
+    broker   = get_broker()
     screener = STRATEGY_MAP[strategy](broker)
-    results = screener.scan(universe=UNIVERSE, historical_interval="1D", historical_lookback=100)
+    results  = screener.scan(universe=UNIVERSE, historical_interval="1D", historical_lookback=100)
 
-    serialized = []
+    total_conds = STRATEGY_TOTAL_CONDS.get(strategy, 6)
+    serialized  = []
+
     for r in results:
         setup = None
         if r.setup:
@@ -56,6 +66,10 @@ def _run_screener(strategy: str) -> dict:
                 "book_at_tp1": float(r.setup.book_at_tp1),
                 "book_at_tp2": float(r.setup.book_at_tp2),
             }
+
+        conds_met      = len(r.matched_conditions)
+        confidence_pct = round(conds_met / total_conds * 100, 1)
+
         serialized.append({
             "symbol":             r.symbol,
             "exchange":           r.exchange.value,
@@ -73,12 +87,13 @@ def _run_screener(strategy: str) -> dict:
             "choc_detected":      r.choc_detected,
             "volume_contracting": r.volume_contracting,
             "matched_conditions": r.matched_conditions,
+            "confidence_pct":     confidence_pct,
             "is_match":           r.setup is not None,
             "setup":              setup,
         })
 
     matched = sum(1 for r in serialized if r["is_match"])
-    result = {
+    result  = {
         "strategy": strategy.upper(),
         "total":    len(serialized),
         "matched":  matched,
@@ -91,12 +106,25 @@ def _run_screener(strategy: str) -> dict:
 
 @router.get("/{strategy}")
 def get_screener(
-    strategy: str,
-    filter: str = Query(default="all", pattern="^(all|matched)$"),
+    strategy:       str,
+    filter:         str   = Query(default="all", pattern="^(all|matched)$"),
+    min_confidence: float = Query(default=0.0, ge=0.0, le=100.0),
+    min_price:      float = Query(default=0.0, ge=0.0),
+    max_price:      float = Query(default=0.0, ge=0.0),   # 0 = no upper limit
 ):
     if strategy not in STRATEGY_MAP:
         raise HTTPException(status_code=404, detail=f"Unknown strategy: {strategy}")
-    data = _run_screener(strategy)
+
+    data    = _run_screener(strategy)
+    results = list(data["results"])
+
     if filter == "matched":
-        data = {**data, "results": [r for r in data["results"] if r["is_match"]]}
-    return data
+        results = [r for r in results if r["is_match"]]
+    if min_confidence > 0:
+        results = [r for r in results if r["confidence_pct"] >= min_confidence]
+    if min_price > 0:
+        results = [r for r in results if r["ltp"] >= min_price]
+    if max_price > 0:
+        results = [r for r in results if r["ltp"] <= max_price]
+
+    return {**data, "results": results, "total": len(results)}

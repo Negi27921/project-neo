@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import { Globe, LayoutDashboard, ScanSearch, BarChart2, BookOpen, Briefcase, Bot, ChevronRight, LogOut, ClipboardList } from 'lucide-react'
+import { Globe, LayoutDashboard, ScanSearch, BarChart2, BookOpen, Briefcase, Bot, ChevronRight, LogOut, ClipboardList, Cpu } from 'lucide-react'
 import client from '../../api/client'
 import { useAuth } from '../../contexts/AuthContext'
 import ModeToggle from '../trading/ModeToggle'
@@ -18,6 +18,7 @@ const NAV_GROUPS = [
     items: [
       { to: '/orders',     icon: ClipboardList,   label: 'Orders',          end: false },
       { to: '/screener',   icon: ScanSearch,      label: 'Screener',        end: false },
+      { to: '/ai',         icon: Cpu,             label: 'AI Agent',        end: false },
       { to: '/simulator',  icon: Bot,             label: 'Bot Simulator',   end: false },
     ],
   },
@@ -97,7 +98,7 @@ export default function Sidebar() {
             color: isLive ? 'var(--t-matrix)' : 'var(--t4)',
             fontFamily: 'var(--font-mono)', letterSpacing: '0.08em', marginTop: 3,
           }}>
-            v1.0 · {brokerName === 'dhan_live' ? 'DHAN LIVE' : brokerName === 'shoonya_live' ? 'SHOONYA LIVE' : 'MOCK MODE'}
+            v2.0 · {brokerName === 'dhan_live' ? 'DHAN LIVE' : brokerName === 'shoonya_live' ? 'SHOONYA LIVE' : 'MOCK MODE'}
           </div>
         </div>
       </div>

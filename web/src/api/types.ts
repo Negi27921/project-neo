@@ -57,6 +57,7 @@ export interface ScreenerRow {
   choc_detected: boolean
   volume_contracting: boolean
   matched_conditions: string[]
+  confidence_pct: number
   is_match: boolean
   setup: TradeSetup | null
 }
@@ -173,4 +174,81 @@ export interface PositionsResponse {
   total_unrealized_pnl: number
   total_unrealized_pnl_pct: number
   live?: boolean
+}
+
+// ── Trade execution (orders v2) ────────────────────────────────────────────
+
+export interface OrderRequest {
+  mode:           'paper' | 'live'
+  symbol:         string
+  side:           'BUY' | 'SELL'
+  order_type:     'MARKET' | 'LIMIT'
+  product_type:   'INTRADAY' | 'DELIVERY'
+  quantity:       number
+  price?:         number
+  stop_loss?:     number
+  target_1?:      number
+  target_2?:      number
+  strategy?:      string
+  confidence_pct?: number
+  remarks?:       string
+}
+
+export interface NeoTrade {
+  id:             string
+  symbol:         string
+  side:           'BUY' | 'SELL'
+  order_type:     string
+  product_type:   string
+  quantity:       number
+  entry_price:    number
+  exit_price:     number | null
+  stop_loss:      number | null
+  target_1:       number | null
+  target_2:       number | null
+  mode:           'paper' | 'live'
+  source:         'manual' | 'ai'
+  strategy:       string | null
+  confidence_pct: number | null
+  status:         'OPEN' | 'CLOSED' | 'CANCELLED'
+  entry_time:     string
+  exit_time:      string | null
+  gross_pnl:      number | null
+  net_pnl:        number | null
+  remarks:        string | null
+}
+
+export interface TradeHistoryResponse {
+  trades:        NeoTrade[]
+  total:         number
+  open_count:    number
+  total_net_pnl: number
+}
+
+// ── AI agent ───────────────────────────────────────────────────────────────
+
+export interface AIConfig {
+  is_enabled:           boolean
+  mode:                 'paper' | 'live'
+  confidence_threshold: number
+  capital_per_trade:    number
+  max_trades_per_day:   number
+  max_trades_per_month: number
+  strategies:           string
+}
+
+export interface AIStatus extends AIConfig {
+  today_trades:          number
+  today_limit:           number
+  month_trades:          number
+  month_limit:           number
+  slots_remaining_today: number
+  last_trade:            NeoTrade | null
+}
+
+// ── Symbol search ──────────────────────────────────────────────────────────
+
+export interface SymbolResult {
+  symbol: string
+  name:   string
 }
