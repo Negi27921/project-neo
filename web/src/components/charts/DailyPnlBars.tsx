@@ -32,7 +32,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 }
 
 export default function DailyPnlBars({ data }: { data: DailyPnlPoint[] }) {
-  const filtered = data.filter(d => d.pnl !== 0)
+  const filtered = (Array.isArray(data) ? data : []).filter(d => d.pnl !== 0)
   return (
     <ResponsiveContainer width="100%" height={200}>
       <BarChart data={filtered} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>

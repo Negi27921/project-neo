@@ -81,11 +81,11 @@ export default function TradeLogs() {
     params.set('page_size', '200')
 
     client.get<TradesResponse>(`/trades?${params}`).then(r => {
-      let data = r.data.trades
+      let data = Array.isArray(r.data?.trades) ? r.data.trades : []
       if (strategy !== 'ALL') data = data.filter(t => t.strategy === strategy)
       setTrades(data)
       setLoading(false)
-    })
+    }).catch(() => { setLoading(false) })
   }, [symbol, result, strategy, fromDate, toDate])
 
   /* ── Insights computed ──────────────────────────────────────── */
@@ -331,7 +331,7 @@ export default function TradeLogs() {
               />
               <LossRow
                 label="Largest single loss"
-                value={formatINR(Math.min(...insights.losers.map(t => t.net_pnl), 0))}
+                value={formatINR(insights.losers.length ? Math.min(...insights.losers.map(t => t.net_pnl)) : 0)}
                 tooltip="Worst single trade loss. If >>Avg Loss, review position sizing discipline."
               />
               <LossRow

@@ -2,7 +2,7 @@ import type { TradeSetup } from '../../api/types'
 import { formatINR, formatPct } from '../../utils/formatters'
 
 export default function SetupPopover({ setup }: { setup: TradeSetup }) {
-  const range = setup.target_2 - setup.stop_loss
+  const range = (setup.target_2 - setup.stop_loss) || 1  // guard division-by-zero
 
   return (
     <div style={{ minWidth: 220 }}>

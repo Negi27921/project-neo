@@ -76,7 +76,8 @@ function StatBlock({ label, end, prefix = '', suffix = '', decimals = 0, color, 
 /* ── Recharts custom tooltips ───────────────────────────────── */
 function DailyTooltip({ active, payload }: any) {
   if (!active || !payload?.length) return null
-  const d: DailyPnlPoint = payload[0].payload
+  const d: DailyPnlPoint = payload[0]?.payload
+  if (!d) return null
   return (
     <div style={{ background: TT_BG, border: '1px solid var(--border)', borderRadius: 6, padding: '10px 14px', fontSize: 10, fontFamily: 'var(--font-mono)' }}>
       <div style={{ color: 'var(--t3)', marginBottom: 5, fontSize: 9 }}>{d.date}</div>
@@ -90,7 +91,8 @@ function DailyTooltip({ active, payload }: any) {
 
 function DrawdownTooltip({ active, payload }: any) {
   if (!active || !payload?.length) return null
-  const d: EquityCurvePoint = payload[0].payload
+  const d: EquityCurvePoint = payload[0]?.payload
+  if (!d) return null
   return (
     <div style={{ background: TT_BG, border: '1px solid rgba(255,59,59,0.2)', borderRadius: 6, padding: '10px 14px', fontSize: 10, fontFamily: 'var(--font-mono)' }}>
       <div style={{ color: 'var(--t3)', marginBottom: 5, fontSize: 9 }}>{d.date}</div>
@@ -158,7 +160,7 @@ export default function Analytics() {
     { header: 'Result',   accessorKey: 'result',       cell: ({ getValue }) => <Badge variant={getValue() === 'winner' ? 'winner' : 'loser'}>{String(getValue()).toUpperCase()}</Badge> },
   ], [])
 
-  const maxDD       = equity.length ? Math.min(...equity.map(e => e.drawdown_pct)) : 0
+  const maxDD       = equity.length ? Math.min(0, ...equity.map(e => e.drawdown_pct)) : 0
   const totalPnl    = equity.length ? equity[equity.length - 1].cumulative_pnl : 0
   const tradingDays = daily.filter(d => d.trades_count > 0).length
   const winDays     = daily.filter(d => d.pnl > 0).length

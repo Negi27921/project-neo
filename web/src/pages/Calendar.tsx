@@ -41,9 +41,9 @@ export default function Calendar() {
     setSelectedDate(d.date)
     setLoadingDay(true)
     client.get<TradesResponse>(`/trades?from_date=${d.date}&to_date=${d.date}&page_size=50`).then(r => {
-      setDayTrades(r.data.trades)
+      setDayTrades(Array.isArray(r.data.trades) ? r.data.trades : [])
       setLoadingDay(false)
-    })
+    }).catch(() => setLoadingDay(false))
   }
 
   const tradeCols = useMemo<ColumnDef<Trade, any>[]>(() => [

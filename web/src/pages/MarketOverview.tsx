@@ -211,7 +211,7 @@ function RRGTooltip({ active, payload }: { active?: boolean; payload?: { payload
 // ── Sector Rotation Chart ──────────────────────────────────────────────────
 
 function SectorRRG({ data }: { data: SectorPoint[] }) {
-  if (!data || data.length === 0) return null
+  if (!Array.isArray(data) || data.length === 0) return null
   // Compute axis domain with padding
   const xs = data.map(d => d.rs_ratio)
   const ys = data.map(d => d.rs_momentum)
@@ -360,7 +360,9 @@ function BreadthBar({ breadth }: { breadth: MarketOverview['breadth'] }) {
 
 function MoversTable({ movers }: { movers: TopMovers }) {
   const [tab, setTab] = useState<'gainers' | 'losers'>('gainers')
-  const rows = tab === 'gainers' ? movers.gainers : movers.losers
+  const rows = Array.isArray(tab === 'gainers' ? movers.gainers : movers.losers)
+    ? (tab === 'gainers' ? movers.gainers : movers.losers)
+    : []
   const color = tab === 'gainers' ? 'var(--green-main)' : 'var(--red-main)'
 
   return (
@@ -616,10 +618,11 @@ export default function MarketOverview() {
         fetchTopMovers(12),
         fetchNiftyScreener(),
       ])
-      if (ov.status === 'fulfilled') setOverview(ov.value)
-      if (rot.status === 'fulfilled') setRotation(rot.value)
-      if (mv.status === 'fulfilled') setMovers(mv.value)
-      if (scr.status === 'fulfilled') setScreener(scr.value)
+      // Validate shapes before setting state — API errors return objects, not arrays
+      if (ov.status === 'fulfilled' && ov.value && Array.isArray(ov.value.indices)) setOverview(ov.value)
+      if (rot.status === 'fulfilled' && Array.isArray(rot.value)) setRotation(rot.value)
+      if (mv.status === 'fulfilled' && Array.isArray(mv.value?.gainers)) setMovers(mv.value)
+      if (scr.status === 'fulfilled' && Array.isArray(scr.value)) setScreener(scr.value)
       setLastRefresh(new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
     } catch {
       // silent — stale data stays

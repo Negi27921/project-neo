@@ -150,13 +150,14 @@ export default function Simulator() {
         client.get<TradesResponse>(`/trades?page_size=200${strategy !== 'ALL' ? `&strategy=${strategy}` : ''}`),
         client.get('/pnl/equity-curve'),
       ]).then(([t, e]) => {
-        const filtered = strategy === 'ALL' ? t.data.trades : t.data.trades.filter(tr => tr.strategy === strategy)
+        const allTrades = Array.isArray(t.data.trades) ? t.data.trades : []
+        const filtered = strategy === 'ALL' ? allTrades : allTrades.filter(tr => tr.strategy === strategy)
         setTrades(filtered)
-        setEquity(e.data.data)
+        setEquity(Array.isArray(e.data.data) ? e.data.data : [])
         setLoading(false)
         setRunning(true)
         setSimRan(true)
-      })
+      }).catch(() => setLoading(false))
     }, 1200)
   }
 

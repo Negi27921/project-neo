@@ -184,7 +184,7 @@ export default function Screener() {
       header: 'Confidence',
       accessorKey: 'matched_conditions',
       cell: ({ getValue }) => (
-        <ConfidenceBar value={(getValue() as string[]).length} total={activeStrategy.totalConds} />
+        <ConfidenceBar value={Array.isArray(getValue()) ? (getValue() as string[]).length : 0} total={activeStrategy.totalConds} />
       ),
     },
     {

@@ -417,7 +417,7 @@ export default function Dashboard() {
   }, [sseData?.timestamp])
 
   const totalPnl = equity.length ? equity[equity.length - 1].cumulative_pnl : 0
-  const maxDD    = equity.length ? Math.min(...equity.map(e => e.drawdown_pct)) : 0
+  const maxDD    = equity.length ? Math.min(0, ...equity.map(e => e.drawdown_pct)) : 0
   const tvData   = equity.map(e => ({ time: e.date, value: e.cumulative_pnl }))
 
   return (
