@@ -13,6 +13,7 @@ from src.market.data_fetcher import (
     get_nifty500_screener,
     get_market_breadth,
     get_nifty500_breadth,
+    get_stock_meta,
 )
 
 router = APIRouter()
@@ -51,3 +52,9 @@ def nifty_screener(min_change_pct: float = Query(default=0.0)):
 def nifty500_screener(min_change_pct: float = Query(default=0.0)):
     """Full Nifty 500 class screener table (~300 stocks), sorted by change %."""
     return get_nifty500_screener(min_change_pct)
+
+
+@router.get("/stocks/{symbol}/meta")
+def stock_meta(symbol: str):
+    """Rich metadata for a stock: sector, industry, market cap, P/E, 52W range. Cached 24h."""
+    return get_stock_meta(symbol.upper())

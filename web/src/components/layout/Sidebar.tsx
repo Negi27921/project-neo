@@ -108,8 +108,8 @@ export default function Sidebar() {
           <div key={group.label} style={{ marginBottom: 10 }}>
             <div style={{
               padding: '6px 16px 4px',
-              fontSize: 8, color: 'var(--t4)',
-              fontFamily: 'var(--font-mono)', letterSpacing: '0.16em',
+              fontSize: 9, color: 'var(--t3)',
+              fontFamily: 'var(--font-mono)', letterSpacing: '0.14em',
               fontWeight: 600,
             }}>
               {group.label}
@@ -127,13 +127,13 @@ export default function Sidebar() {
                   padding: '9px 16px',
                   color: isActive ? 'var(--green-matrix)' : 'var(--t2)',
                   textDecoration: 'none',
-                  fontSize: 11,
-                  fontWeight: isActive ? 600 : 400,
+                  fontSize: 12,
+                  fontWeight: isActive ? 600 : 500,
                   fontFamily: 'var(--font-mono)',
                   letterSpacing: '0.04em',
                   borderLeft: isActive ? '2px solid var(--green-matrix)' : '2px solid transparent',
                   background: isActive
-                    ? 'linear-gradient(90deg, rgba(0,255,65,0.06) 0%, transparent 100%)'
+                    ? 'linear-gradient(90deg, rgba(0,255,65,0.08) 0%, transparent 80%)'
                     : 'transparent',
                   transition: 'all 0.12s ease',
                   textShadow: isActive ? '0 0 8px rgba(0,255,65,0.35)' : 'none',

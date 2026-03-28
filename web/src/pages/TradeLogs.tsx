@@ -121,17 +121,17 @@ export default function TradeLogs() {
     {
       header: 'Exit Time',
       accessorKey: 'exit_time',
-      cell: ({ getValue }) => <span style={{ color: 'var(--text-secondary)', fontSize: 10 }}>{formatDateTime(getValue())}</span>,
+      cell: ({ getValue }) => <span style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{formatDateTime(getValue())}</span>,
     },
     {
       header: 'Symbol',
       accessorKey: 'symbol',
-      cell: ({ getValue }) => <span style={{ fontWeight: 700, fontSize: 11, color: 'var(--text-primary)' }}>{getValue()}</span>,
+      cell: ({ getValue }) => <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)' }}>{getValue()}</span>,
     },
     {
       header: 'Strategy',
       accessorKey: 'strategy',
-      cell: ({ getValue }) => <span style={{ fontSize: 9, color: 'var(--accent-cyan)' }}>{getValue()}</span>,
+      cell: ({ getValue }) => <span style={{ fontSize: 12, color: 'var(--accent-cyan)' }}>{getValue()}</span>,
     },
     {
       header: 'Qty',

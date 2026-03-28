@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { motion } from 'framer-motion'
-import { RefreshCw, Trash2, AlertCircle } from 'lucide-react'
+import { RefreshCw, Trash2, AlertCircle, ClipboardList } from 'lucide-react'
 import MatrixCard from '../components/common/MatrixCard'
 import { useTradingMode } from '../contexts/TradingContext'
 import client from '../api/client'
@@ -128,9 +128,24 @@ export default function Orders() {
         {loading ? (
           <div style={{ padding: 30, textAlign: 'center', fontSize: 10, color: 'var(--t4)', fontFamily: 'var(--font-mono)' }}>Loading orders...</div>
         ) : orders.length === 0 ? (
-          <div style={{ padding: 40, textAlign: 'center', fontSize: 10, color: 'var(--t4)', fontFamily: 'var(--font-mono)', lineHeight: 2 }}>
-            No orders yet.<br />
-            <span style={{ fontSize: 9 }}>Place orders from Screener or Positions pages.</span>
+          <div style={{
+            padding: '48px 24px', textAlign: 'center', display: 'flex',
+            flexDirection: 'column', alignItems: 'center', gap: 10,
+          }}>
+            <div style={{
+              width: 52, height: 52, borderRadius: 12,
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid var(--border)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <ClipboardList size={22} color="var(--t3)" strokeWidth={1.5} />
+            </div>
+            <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--t2)', fontFamily: 'var(--font-display, var(--font-mono))' }}>
+              No orders yet
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--t3)', fontFamily: 'var(--font-mono)', lineHeight: 1.6, maxWidth: 260 }}>
+              Place orders from the Screener or Positions pages. Orders will appear here in real time.
+            </div>
           </div>
         ) : (
           <OrderTable orders={orders} onCancel={cancelOrder} />
@@ -162,31 +177,31 @@ export default function Orders() {
 function OrderTable({ orders, onCancel }: { orders: Order[]; onCancel: (id: string) => void }) {
   return (
     <div style={{ overflowX: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-mono)', fontSize: 10 }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-mono)', fontSize: 13 }}>
         <thead>
           <tr style={{ borderBottom: '1px solid var(--border)' }}>
             {['Time', 'Symbol', 'Side', 'Type', 'Qty', 'Price', 'Fill', 'Status', ''].map(h => (
-              <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontSize: 8, color: 'var(--t4)', fontWeight: 600, letterSpacing: '0.1em', whiteSpace: 'nowrap' }}>{h}</th>
+              <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 13, color: 'var(--t4)', fontWeight: 700, letterSpacing: '0.1em', whiteSpace: 'nowrap' }}>{h}</th>
             ))}
           </tr>
         </thead>
         <tbody>
           {orders.map(o => (
             <tr key={o.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-              <td style={{ padding: '8px 12px', color: 'var(--t4)', fontSize: 9, whiteSpace: 'nowrap' }}>
+              <td style={{ padding: '12px 16px', color: 'var(--t4)', fontSize: 13, whiteSpace: 'nowrap' }}>
                 {o.placed_at ? new Date(o.placed_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—'}
               </td>
-              <td style={{ padding: '8px 12px', fontWeight: 700, color: 'var(--text-primary)' }}>{o.symbol}</td>
-              <td style={{ padding: '8px 12px', fontWeight: 700, color: o.side === 'BUY' ? 'var(--green-main)' : 'var(--red-main)' }}>{o.side}</td>
-              <td style={{ padding: '8px 12px', color: 'var(--t3)' }}>{o.order_type}</td>
-              <td style={{ padding: '8px 12px', fontWeight: 600, color: 'var(--text-primary)' }}>{o.quantity}</td>
-              <td style={{ padding: '8px 12px', color: 'var(--t2)' }}>{o.price ? formatINR(o.price) : 'MKT'}</td>
-              <td style={{ padding: '8px 12px', color: 'var(--t-matrix)', fontWeight: 600 }}>
+              <td style={{ padding: '12px 16px', fontWeight: 600, fontSize: 14, color: 'var(--text-primary)' }}>{o.symbol}</td>
+              <td style={{ padding: '12px 16px', fontWeight: 700, color: o.side === 'BUY' ? 'var(--green-main)' : 'var(--red-main)' }}>{o.side}</td>
+              <td style={{ padding: '12px 16px', color: 'var(--t3)' }}>{o.order_type}</td>
+              <td style={{ padding: '12px 16px', fontWeight: 500, color: 'var(--text-primary)' }}>{o.quantity}</td>
+              <td style={{ padding: '12px 16px', fontWeight: 500, color: 'var(--t2)' }}>{o.price ? formatINR(o.price) : 'MKT'}</td>
+              <td style={{ padding: '12px 16px', color: 'var(--t-matrix)', fontWeight: 500 }}>
                 {o.fill_price ? formatINR(o.fill_price) : '—'}
               </td>
-              <td style={{ padding: '8px 12px' }}>
+              <td style={{ padding: '12px 16px' }}>
                 <span style={{
-                  fontSize: 8, padding: '2px 7px', borderRadius: 3, fontWeight: 700, letterSpacing: '0.08em',
+                  fontSize: 11, padding: '2px 7px', borderRadius: 3, fontWeight: 700, letterSpacing: '0.08em',
                   color: STATUS_COLOR[o.status] ?? 'var(--t4)',
                   background: `${STATUS_COLOR[o.status] ?? 'var(--t4)'}15`,
                   border: `1px solid ${STATUS_COLOR[o.status] ?? 'var(--t4)'}33`,
@@ -194,7 +209,7 @@ function OrderTable({ orders, onCancel }: { orders: Order[]; onCancel: (id: stri
                   {o.status}
                 </span>
               </td>
-              <td style={{ padding: '8px 12px' }}>
+              <td style={{ padding: '12px 16px' }}>
                 {['PENDING', 'OPEN'].includes(o.status) && (
                   <button onClick={() => onCancel(o.id)} style={{
                     background: 'none', border: 'none', color: 'var(--t4)', cursor: 'pointer', padding: 2,

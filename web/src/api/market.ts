@@ -45,12 +45,21 @@ export interface MarketOverview {
   breadth500?: MarketBreadth
 }
 
+export interface TrailPoint {
+  rs_ratio: number
+  rs_momentum: number
+  date: string
+}
+
 export interface SectorPoint {
   name: string
   ticker: string
   rs_ratio: number
   rs_momentum: number
   quadrant: 'leading' | 'improving' | 'weakening' | 'lagging'
+  trail: TrailPoint[]
+  heading_degrees: number
+  velocity: number
   change_1w: number
   change_1m: number
   ltp: number
@@ -88,3 +97,27 @@ export const fetchNiftyScreener = (): Promise<StockRow[]> =>
 
 export const fetchNifty500Screener = (): Promise<StockRow[]> =>
   client.get('/market/stocks/screener500').then(r => r.data)
+
+export interface StockMeta {
+  symbol: string
+  name: string | null
+  sector: string | null
+  industry: string | null
+  market_cap: string | null
+  pe_ratio: number | null
+  week52_high: number | null
+  week52_low: number | null
+  beta: number | null
+  div_yield: number | null
+}
+
+// Client-side 24h cache to avoid re-fetching on every hover
+const _metaCache: Record<string, { ts: number; data: StockMeta }> = {}
+
+export async function fetchStockMeta(symbol: string): Promise<StockMeta> {
+  const cached = _metaCache[symbol]
+  if (cached && Date.now() - cached.ts < 86_400_000) return cached.data
+  const data = await client.get<StockMeta>(`/market/stocks/${symbol}/meta`).then(r => r.data)
+  _metaCache[symbol] = { ts: Date.now(), data }
+  return data
+}

@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowUpRight, ArrowDownRight, Target, Shield, TrendingUp, Clock, Layers, Edit2, X, Check } from 'lucide-react'
+import { ArrowUpRight, ArrowDownRight, Target, Shield, TrendingUp, Clock, Layers, Edit2, X, Check, Briefcase } from 'lucide-react'
 import MatrixTooltip from '../components/common/MatrixTooltip'
 import LoadingSkeleton from '../components/common/LoadingSkeleton'
 import client from '../api/client'
@@ -180,7 +180,7 @@ function PositionCard({ pos, index, onEdit }: { pos: Position; index: number; on
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay: index * 0.07, ease: [0.16, 1, 0.3, 1] }}
       style={{
-        background: '#000',
+        background: 'var(--bg-card)',
         border: `1px solid ${isUp ? 'rgba(0,255,65,0.14)' : 'rgba(255,59,59,0.14)'}`,
         borderTop: `2px solid ${color}`,
         borderRadius: 8,
@@ -348,7 +348,7 @@ export default function Positions() {
             style={{
               display: 'flex', alignItems: 'center', gap: 7,
               padding: '8px 18px',
-              background: tab === key ? 'rgba(0,255,65,0.07)' : '#000',
+              background: tab === key ? 'rgba(0,255,65,0.07)' : 'var(--bg-card)',
               border: `1px solid ${tab === key ? 'rgba(0,255,65,0.4)' : 'var(--border)'}`,
               borderRadius: 6,
               color: tab === key ? 'var(--t-matrix)' : 'var(--t2)',
@@ -409,7 +409,7 @@ export default function Positions() {
             { icon: Clock,      label: 'Avg Hold (d)',    val: active.positions.length > 0 ? (active.positions.reduce((s, p) => s + (p.holding_days ?? 0), 0) / active.positions.length).toFixed(1) : '—', col: 'var(--t2)' },
           ].map(({ icon: Icon, label, val, col, tip }) => (
             <MatrixTooltip key={label} content={tip ?? label}>
-              <div style={{ background: '#000', border: '1px solid var(--border)', borderRadius: 6, padding: '14px 16px', cursor: 'help' }}>
+              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 6, padding: '14px 16px', cursor: 'help' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
                   <Icon size={11} color="var(--t3)" strokeWidth={1.5} />
                   <span className="label-xs">{label}</span>
@@ -425,14 +425,34 @@ export default function Positions() {
       {!active ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 12 }}>
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} style={{ height: 220, background: '#000', border: '1px solid var(--border)', borderRadius: 8 }}>
+            <div key={i} style={{ height: 220, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8 }}>
               <LoadingSkeleton rows={4} />
             </div>
           ))}
         </div>
       ) : active.positions.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--t3)', fontFamily: 'var(--font-mono)', fontSize: 12 }}>
-          No open positions
+        <div style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          gap: 12, padding: '60px 24px', textAlign: 'center',
+          background: 'var(--bg-card)', border: '1px solid var(--border)',
+          borderRadius: 10,
+        }}>
+          <div style={{
+            width: 56, height: 56, borderRadius: 14,
+            background: 'rgba(255,255,255,0.04)',
+            border: '1px solid var(--border)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Briefcase size={24} color="var(--t3)" strokeWidth={1.5} />
+          </div>
+          <div style={{ fontSize: 16, fontWeight: 500, color: 'var(--t2)', fontFamily: 'var(--font-mono)' }}>
+            {tab === 'real' ? 'No live positions' : 'No paper positions'}
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--t3)', fontFamily: 'var(--font-mono)', lineHeight: 1.6, maxWidth: 280 }}>
+            {tab === 'real'
+              ? 'Live positions from your Dhan account will appear here. Toggle live mode in the sidebar to trade real capital.'
+              : 'Place paper orders from the Screener page to see simulated positions here.'}
+          </div>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 12 }}>

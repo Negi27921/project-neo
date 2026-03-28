@@ -1,13 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import {
-  ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, ReferenceLine,
-  Tooltip as ReTooltip, ResponsiveContainer, Cell,
-} from 'recharts'
-import {
   fetchMarketOverview, fetchSectorRotation, fetchTopMovers,
   fetchNiftyScreener, fetchNifty500Screener,
   type MarketOverview, type SectorPoint, type TopMovers, type StockRow,
 } from '../api/market'
+import StockMetaTooltip from '../components/common/StockMetaTooltip'
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -175,53 +172,48 @@ function CommodityCard({ d }: { d: MarketOverview['commodities'][0] }) {
   )
 }
 
-// ── RRG custom tooltip ─────────────────────────────────────────────────────
+// ── SVG Relative Rotation Graph ───────────────────────────────────────────
+// Full custom SVG — no Recharts dependency. Supports trails + arrowheads.
 
-function RRGTooltip({ active, payload }: { active?: boolean; payload?: { payload: SectorPoint }[] }) {
-  if (!active || !payload?.length) return null
-  const d = payload[0].payload
-  const color = QUADRANT_COLORS[d.quadrant]
-  return (
-    <div style={{
-      background: 'rgba(10,10,10,0.96)',
-      border: `1px solid ${color}44`,
-      borderRadius: 8,
-      padding: '10px 14px',
-      fontFamily: 'var(--font-mono)',
-      minWidth: 160,
-      boxShadow: `0 0 20px ${color}22`,
-    }}>
-      <div style={{ fontSize: 12, fontWeight: 700, color, marginBottom: 6 }}>{d.name}</div>
-      <div style={{ fontSize: 10, color: 'var(--t2)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px 12px' }}>
-        <span style={{ color: 'var(--t4)' }}>RS-Ratio</span>
-        <span>{d.rs_ratio.toFixed(2)}</span>
-        <span style={{ color: 'var(--t4)' }}>RS-Mom</span>
-        <span>{d.rs_momentum.toFixed(2)}</span>
-        <span style={{ color: 'var(--t4)' }}>1W</span>
-        <span style={{ color: chgColor(d.change_1w) }}>{pct(d.change_1w)}</span>
-        <span style={{ color: 'var(--t4)' }}>1M</span>
-        <span style={{ color: chgColor(d.change_1m) }}>{pct(d.change_1m)}</span>
-      </div>
-      <div style={{ marginTop: 6, fontSize: 9, color, letterSpacing: '0.1em', fontWeight: 700 }}>
-        {QUADRANT_LABELS[d.quadrant]}
-      </div>
-    </div>
-  )
+const QUADRANT_BG: Record<string, string> = {
+  leading:   'rgba(34,197,94,0.07)',
+  improving: 'rgba(59,130,246,0.07)',
+  weakening: 'rgba(245,158,11,0.07)',
+  lagging:   'rgba(239,68,68,0.07)',
 }
 
-// ── Sector Rotation Chart ──────────────────────────────────────────────────
-
 function SectorRRG({ data }: { data: SectorPoint[] }) {
+  const [hovered, setHovered] = useState<string | null>(null)
+  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null)
+  const svgRef = useRef<SVGSVGElement>(null)
+
   if (!Array.isArray(data) || data.length === 0) return null
-  // Compute axis domain with padding
-  const xs = data.map(d => d.rs_ratio)
-  const ys = data.map(d => d.rs_momentum)
-  const xMin = Math.min(...xs, 96)
-  const xMax = Math.max(...xs, 104)
-  const yMin = Math.min(...ys, 96)
-  const yMax = Math.max(...ys, 104)
-  const xPad = (xMax - xMin) * 0.12
-  const yPad = (yMax - yMin) * 0.12
+
+  // Canvas dimensions
+  const W = 560, H = 400
+  const PAD = { top: 24, right: 24, bottom: 36, left: 48 }
+  const plotW = W - PAD.left - PAD.right
+  const plotH = H - PAD.top - PAD.bottom
+
+  // Compute domain from all trail points + current points
+  const allX: number[] = [], allY: number[] = []
+  data.forEach(d => {
+    allX.push(d.rs_ratio)
+    allY.push(d.rs_momentum)
+    d.trail?.forEach(t => { allX.push(t.rs_ratio); allY.push(t.rs_momentum) })
+  })
+  const xMin = Math.min(...allX, 97) - 1
+  const xMax = Math.max(...allX, 103) + 1
+  const yMin = Math.min(...allY, 97) - 1
+  const yMax = Math.max(...allY, 103) + 1
+
+  // Coordinate mappers
+  const toX = (v: number) => PAD.left + ((v - xMin) / (xMax - xMin)) * plotW
+  const toY = (v: number) => PAD.top + (1 - (v - yMin) / (yMax - yMin)) * plotH
+  const cx100 = toX(100), cy100 = toY(100)
+
+  // Hoverable sector
+  const hoveredSector = hovered ? data.find(d => d.name === hovered) : null
 
   return (
     <div style={{
@@ -230,80 +222,204 @@ function SectorRRG({ data }: { data: SectorPoint[] }) {
       borderRadius: 12,
       padding: '16px',
       flex: 1,
-      minHeight: 400,
+      minHeight: 460,
     }}>
+      {/* Header */}
       <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
         <div>
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', letterSpacing: '0.08em' }}>
             RELATIVE ROTATION GRAPH
           </div>
-          <div style={{ fontSize: 9, color: 'var(--t4)', fontFamily: 'var(--font-mono)', marginTop: 3 }}>
-            X: RS-Ratio (20d) · Y: RS-Momentum (5d) · Benchmark: Nifty 50
+          <div style={{ fontSize: 9, color: 'var(--t3)', fontFamily: 'var(--font-mono)', marginTop: 3 }}>
+            X: RS-Ratio · Y: RS-Momentum · Benchmark: Nifty 50 · Weekly
           </div>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           {(['leading','improving','weakening','lagging'] as const).map(q => (
             <div key={q} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <div style={{ width: 7, height: 7, borderRadius: '50%', background: QUADRANT_COLORS[q] }} />
-              <span style={{ fontSize: 8, color: 'var(--t4)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase' }}>{q}</span>
+              <span style={{ fontSize: 8, color: 'var(--t3)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase' }}>{q}</span>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Quadrant background labels */}
+      {/* SVG canvas */}
       <div style={{ position: 'relative' }}>
-        <ResponsiveContainer width="100%" height={340}>
-          <ScatterChart margin={{ top: 10, right: 20, bottom: 20, left: 10 }}>
-            <CartesianGrid strokeDasharray="2 4" stroke="rgba(255,255,255,0.04)" />
-            <XAxis
-              type="number" dataKey="rs_ratio"
-              domain={[xMin - xPad, xMax + xPad]}
-              tickCount={5}
-              tick={{ fontSize: 9, fill: 'var(--t4)', fontFamily: 'monospace' }}
-              label={{ value: 'RS-Ratio', position: 'insideBottom', offset: -10, fontSize: 9, fill: 'var(--t4)' }}
-            />
-            <YAxis
-              type="number" dataKey="rs_momentum"
-              domain={[yMin - yPad, yMax + yPad]}
-              tickCount={5}
-              tick={{ fontSize: 9, fill: 'var(--t4)', fontFamily: 'monospace' }}
-              label={{ value: 'RS-Momentum', angle: -90, position: 'insideLeft', offset: 10, fontSize: 9, fill: 'var(--t4)' }}
-            />
-            {/* Quadrant dividers */}
-            <ReferenceLine x={100} stroke="rgba(255,255,255,0.12)" strokeDasharray="4 3" />
-            <ReferenceLine y={100} stroke="rgba(255,255,255,0.12)" strokeDasharray="4 3" />
-            <ReTooltip content={<RRGTooltip />} />
-            <Scatter data={data} isAnimationActive={false}>
-              {data.map((d, i) => (
-                <Cell key={i} fill={QUADRANT_COLORS[d.quadrant]} fillOpacity={0.85} />
-              ))}
-            </Scatter>
-          </ScatterChart>
-        </ResponsiveContainer>
+        <svg
+          ref={svgRef}
+          width="100%"
+          viewBox={`0 0 ${W} ${H}`}
+          style={{ display: 'block', overflow: 'visible' }}
+          onMouseLeave={() => { setHovered(null); setTooltipPos(null) }}
+        >
+          {/* Quadrant fills */}
+          <rect x={PAD.left}  y={PAD.top}  width={cx100 - PAD.left}     height={cy100 - PAD.top}    fill={QUADRANT_BG.improving} />
+          <rect x={cx100}     y={PAD.top}  width={PAD.left + plotW - cx100} height={cy100 - PAD.top} fill={QUADRANT_BG.leading} />
+          <rect x={PAD.left}  y={cy100}    width={cx100 - PAD.left}     height={PAD.top + plotH - cy100} fill={QUADRANT_BG.lagging} />
+          <rect x={cx100}     y={cy100}    width={PAD.left + plotW - cx100} height={PAD.top + plotH - cy100} fill={QUADRANT_BG.weakening} />
 
-        {/* Floating sector labels */}
-        {/* (rendered via absolute overlay is not practical with recharts; labels handled in custom dot) */}
+          {/* Subtle grid */}
+          {[-3,-2,-1,0,1,2,3].map(i => (
+            <g key={i}>
+              <line x1={toX(100+i)} y1={PAD.top} x2={toX(100+i)} y2={PAD.top+plotH}
+                stroke="rgba(255,255,255,0.03)" strokeWidth={1} />
+              <line x1={PAD.left} y1={toY(100+i)} x2={PAD.left+plotW} y2={toY(100+i)}
+                stroke="rgba(255,255,255,0.03)" strokeWidth={1} />
+            </g>
+          ))}
+
+          {/* Crosshair dividers */}
+          <line x1={cx100} y1={PAD.top} x2={cx100} y2={PAD.top+plotH}
+            stroke="rgba(255,255,255,0.18)" strokeWidth={1} strokeDasharray="4 3" />
+          <line x1={PAD.left} y1={cy100} x2={PAD.left+plotW} y2={cy100}
+            stroke="rgba(255,255,255,0.18)" strokeWidth={1} strokeDasharray="4 3" />
+
+          {/* Quadrant labels */}
+          <text x={PAD.left+8}     y={PAD.top+16}    fontSize={10} fill={QUADRANT_COLORS.improving} opacity={0.5} fontWeight={700} letterSpacing={1}>IMPROVING</text>
+          <text x={cx100+8}        y={PAD.top+16}    fontSize={10} fill={QUADRANT_COLORS.leading}   opacity={0.5} fontWeight={700} letterSpacing={1}>LEADING</text>
+          <text x={PAD.left+8}     y={PAD.top+plotH-8} fontSize={10} fill={QUADRANT_COLORS.lagging}   opacity={0.5} fontWeight={700} letterSpacing={1}>LAGGING</text>
+          <text x={cx100+8}        y={PAD.top+plotH-8} fontSize={10} fill={QUADRANT_COLORS.weakening} opacity={0.5} fontWeight={700} letterSpacing={1}>WEAKENING</text>
+
+          {/* Axis labels */}
+          <text x={PAD.left+plotW/2} y={H-6} textAnchor="middle" fontSize={9} fill="rgba(255,255,255,0.3)">RS-Ratio →</text>
+          <text x={12} y={PAD.top+plotH/2} textAnchor="middle" fontSize={9} fill="rgba(255,255,255,0.3)"
+            transform={`rotate(-90, 12, ${PAD.top+plotH/2})`}>RS-Momentum ↑</text>
+
+          {/* Axis tick values */}
+          {[xMin+1, 99, 100, 101, xMax-1].map(v => (
+            <text key={v} x={toX(v)} y={PAD.top+plotH+14} textAnchor="middle" fontSize={8} fill="rgba(255,255,255,0.25)">{v.toFixed(0)}</text>
+          ))}
+          {[yMin+1, 99, 100, 101, yMax-1].map(v => (
+            <text key={v} x={PAD.left-4} y={toY(v)+3} textAnchor="end" fontSize={8} fill="rgba(255,255,255,0.25)">{v.toFixed(0)}</text>
+          ))}
+
+          {/* Draw each sector — trail + arrowhead */}
+          {data.map((d) => {
+            const color = QUADRANT_COLORS[d.quadrant]
+            const isHov = hovered === d.name
+            const trail = Array.isArray(d.trail) && d.trail.length > 0 ? d.trail : [{ rs_ratio: d.rs_ratio, rs_momentum: d.rs_momentum, date: '' }]
+            const pts = trail.map(t => `${toX(t.rs_ratio)},${toY(t.rs_momentum)}`).join(' ')
+            const cx = toX(d.rs_ratio)
+            const cy2 = toY(d.rs_momentum)
+            const heading = d.heading_degrees ?? 0
+
+            return (
+              <g key={d.name}
+                style={{ cursor: 'pointer' }}
+                onMouseEnter={(e) => {
+                  setHovered(d.name)
+                  const rect = svgRef.current?.getBoundingClientRect()
+                  if (rect) setTooltipPos({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+                }}
+                onMouseMove={(e) => {
+                  const rect = svgRef.current?.getBoundingClientRect()
+                  if (rect) setTooltipPos({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+                }}
+              >
+                {/* Trail line */}
+                <polyline
+                  points={pts}
+                  fill="none"
+                  stroke={color}
+                  strokeWidth={isHov ? 2.5 : 1.5}
+                  strokeOpacity={isHov ? 0.9 : 0.55}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                {/* Trail dots (historical — small) */}
+                {trail.slice(0, -1).map((t, i) => (
+                  <circle key={i}
+                    cx={toX(t.rs_ratio)} cy={toY(t.rs_momentum)}
+                    r={2}
+                    fill={color}
+                    fillOpacity={0.35 + (i / trail.length) * 0.3}
+                  />
+                ))}
+                {/* Current position dot */}
+                <circle cx={cx} cy={cy2} r={isHov ? 7 : 5}
+                  fill={color} fillOpacity={isHov ? 1 : 0.88}
+                  stroke={isHov ? '#fff' : color}
+                  strokeWidth={isHov ? 1.5 : 0.5}
+                  strokeOpacity={0.6}
+                />
+                {/* Arrowhead polygon — points north, rotated by heading */}
+                <polygon
+                  points="0,-9 4.5,3 -4.5,3"
+                  fill={color}
+                  fillOpacity={0.9}
+                  transform={`translate(${cx},${cy2}) rotate(${heading})`}
+                />
+                {/* Sector name label */}
+                <text
+                  x={cx + 8} y={cy2 - 6}
+                  fontSize={isHov ? 11 : 9}
+                  fontWeight={isHov ? 700 : 600}
+                  fill={isHov ? '#fff' : color}
+                  style={{ pointerEvents: 'none', fontFamily: 'monospace' }}
+                >
+                  {d.name}
+                </text>
+              </g>
+            )
+          })}
+        </svg>
+
+        {/* Floating tooltip */}
+        {hoveredSector && tooltipPos && (
+          <div style={{
+            position: 'absolute',
+            left: tooltipPos.x + 14,
+            top: tooltipPos.y - 14,
+            background: 'var(--bg-card2)',
+            border: `1px solid ${QUADRANT_COLORS[hoveredSector.quadrant]}55`,
+            borderRadius: 8,
+            padding: '10px 14px',
+            fontFamily: 'var(--font-mono)',
+            minWidth: 180,
+            pointerEvents: 'none',
+            zIndex: 50,
+            boxShadow: `0 4px 24px rgba(0,0,0,0.5), 0 0 20px ${QUADRANT_COLORS[hoveredSector.quadrant]}18`,
+          }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: QUADRANT_COLORS[hoveredSector.quadrant], marginBottom: 8 }}>
+              {hoveredSector.name}
+            </div>
+            <div style={{ fontSize: 10, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px 14px', color: 'var(--t2)' }}>
+              <span style={{ color: 'var(--t3)' }}>RS-Ratio</span>
+              <span>{hoveredSector.rs_ratio.toFixed(2)}</span>
+              <span style={{ color: 'var(--t3)' }}>RS-Mom</span>
+              <span>{hoveredSector.rs_momentum.toFixed(2)}</span>
+              <span style={{ color: 'var(--t3)' }}>Heading</span>
+              <span>{hoveredSector.heading_degrees?.toFixed(0) ?? '—'}°</span>
+              <span style={{ color: 'var(--t3)' }}>1W</span>
+              <span style={{ color: chgColor(hoveredSector.change_1w) }}>{pct(hoveredSector.change_1w)}</span>
+              <span style={{ color: 'var(--t3)' }}>1M</span>
+              <span style={{ color: chgColor(hoveredSector.change_1m) }}>{pct(hoveredSector.change_1m)}</span>
+            </div>
+            <div style={{ marginTop: 6, fontSize: 9, color: QUADRANT_COLORS[hoveredSector.quadrant], letterSpacing: '0.1em', fontWeight: 700 }}>
+              {QUADRANT_LABELS[hoveredSector.quadrant]}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Sector cards below chart */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+      {/* Sector summary chips */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
         {data.map(d => (
-          <div key={d.name} style={{
-            background: `${QUADRANT_COLORS[d.quadrant]}11`,
-            border: `1px solid ${QUADRANT_COLORS[d.quadrant]}33`,
-            borderRadius: 6,
-            padding: '4px 10px',
-            display: 'flex', alignItems: 'center', gap: 6,
-          }}>
+          <div
+            key={d.name}
+            onClick={() => setHovered(hovered === d.name ? null : d.name)}
+            style={{
+              background: `${QUADRANT_COLORS[d.quadrant]}${hovered === d.name ? '22' : '11'}`,
+              border: `1px solid ${QUADRANT_COLORS[d.quadrant]}${hovered === d.name ? '55' : '2a'}`,
+              borderRadius: 6, padding: '4px 10px',
+              display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
+              transition: 'all 0.12s',
+            }}
+          >
             <div style={{ width: 5, height: 5, borderRadius: '50%', background: QUADRANT_COLORS[d.quadrant] }} />
             <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', fontWeight: 600 }}>{d.name}</span>
-            <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--t4)' }}>
-              {d.rs_ratio.toFixed(1)}/{d.rs_momentum.toFixed(1)}
-            </span>
-            <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: chgColor(d.change_1w) }}>
-              {pct(d.change_1w)} 1W
-            </span>
+            <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: chgColor(d.change_1w) }}>{pct(d.change_1w)} 1W</span>
           </div>
         ))}
       </div>
@@ -413,8 +529,8 @@ function MoversTable({ movers }: { movers: TopMovers }) {
         {/* header */}
         <div style={{
           display: 'grid', gridTemplateColumns: '1fr 80px 70px 60px',
-          padding: '6px 12px', borderBottom: '1px solid var(--border)',
-          fontSize: 8, color: 'var(--t4)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em',
+          padding: '10px 14px', borderBottom: '1px solid var(--border)',
+          fontSize: 11, fontWeight: 700, color: 'var(--t4)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em',
         }}>
           <span>SYMBOL</span><span style={{ textAlign: 'right' }}>LTP</span>
           <span style={{ textAlign: 'right' }}>CHG%</span>
@@ -423,15 +539,17 @@ function MoversTable({ movers }: { movers: TopMovers }) {
         {rows.map((r, i) => (
           <div key={r.symbol} style={{
             display: 'grid', gridTemplateColumns: '1fr 80px 70px 60px',
-            padding: '8px 12px', borderBottom: i < rows.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
-            fontSize: 11, fontFamily: 'var(--font-mono)',
+            padding: '11px 14px', borderBottom: i < rows.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+            fontSize: 13, fontFamily: 'var(--font-mono)',
           }}>
-            <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{r.symbol}</span>
-            <span style={{ textAlign: 'right', color: 'var(--text-primary)' }}>
+            <StockMetaTooltip symbol={r.symbol}>
+              <span style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: 14, cursor: 'help' }}>{r.symbol}</span>
+            </StockMetaTooltip>
+            <span style={{ textAlign: 'right', color: 'var(--text-primary)', fontWeight: 500 }}>
               {r.ltp.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
             </span>
             <span style={{ textAlign: 'right', color, fontWeight: 600 }}>{pct(r.change_pct)}</span>
-            <span style={{ textAlign: 'right', color: 'var(--t4)', fontSize: 9 }}>{fmtNum(r.volume)}</span>
+            <span style={{ textAlign: 'right', color: 'var(--t4)', fontSize: 11 }}>{fmtNum(r.volume)}</span>
           </div>
         ))}
         {rows.length === 0 && (
@@ -451,15 +569,15 @@ function IndexRow({ d, last }: { d: MarketOverview['indices'][0]; last: boolean 
     <div style={{
       display: 'grid',
       gridTemplateColumns: '1.6fr 90px 80px 70px 70px 70px',
-      padding: '9px 16px',
+      padding: '13px 16px',
       borderBottom: last ? 'none' : '1px solid rgba(255,255,255,0.05)',
-      fontFamily: 'var(--font-mono)', fontSize: 11,
+      fontFamily: 'var(--font-mono)', fontSize: 13,
     }}>
       <div>
-        <div style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{d.short}</div>
-        <div style={{ fontSize: 8, color: 'var(--t3)', marginTop: 1 }}>{d.sector}</div>
+        <div style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: 14 }}>{d.short}</div>
+        <div style={{ fontSize: 10, color: 'var(--t3)', marginTop: 2 }}>{d.sector}</div>
       </div>
-      <span style={{ textAlign: 'right', color: 'var(--text-primary)', fontWeight: 600 }}>
+      <span style={{ textAlign: 'right', color: 'var(--text-primary)', fontWeight: 500 }}>
         {d.ltp.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
       </span>
       <span style={{ textAlign: 'right', color: chgColor(d.change) }}>
@@ -498,8 +616,8 @@ const COL_HEADERS = (
   <div style={{
     display: 'grid',
     gridTemplateColumns: '1.6fr 90px 80px 70px 70px 70px',
-    padding: '6px 16px', borderBottom: '1px solid var(--border)',
-    fontSize: 8, color: 'var(--t3)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em',
+    padding: '10px 16px', borderBottom: '1px solid var(--border)',
+    fontSize: 11, fontWeight: 700, color: 'var(--t3)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em',
   }}>
     <span>INDEX</span>
     <span style={{ textAlign: 'right' }}>LTP</span>
@@ -638,8 +756,8 @@ function ScreenerTable({
       {/* Column headers */}
       <div style={{
         display: 'grid', gridTemplateColumns: '1fr 90px 80px 70px 70px 70px',
-        padding: '6px 16px', borderBottom: '1px solid var(--border)',
-        fontSize: 8, color: 'var(--t4)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em',
+        padding: '10px 16px', borderBottom: '1px solid var(--border)',
+        fontSize: 11, fontWeight: 700, color: 'var(--t4)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em',
       }}>
         <span>SYMBOL</span>
         <span style={{ textAlign: 'right' }}>LTP</span>
@@ -654,25 +772,27 @@ function ScreenerTable({
         {visible.map((r, i) => (
           <div key={r.symbol} style={{
             display: 'grid', gridTemplateColumns: '1fr 90px 80px 70px 70px 70px',
-            padding: '7px 16px',
+            padding: '10px 16px',
             borderBottom: i < visible.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
-            fontFamily: 'var(--font-mono)', fontSize: 11,
+            fontFamily: 'var(--font-mono)', fontSize: 13,
             background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.012)',
           }}>
-            <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{r.symbol}</span>
-            <span style={{ textAlign: 'right', color: 'var(--text-primary)' }}>
+            <StockMetaTooltip symbol={r.symbol}>
+              <span style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: 14, cursor: 'help' }}>{r.symbol}</span>
+            </StockMetaTooltip>
+            <span style={{ textAlign: 'right', color: 'var(--text-primary)', fontWeight: 500 }}>
               {r.ltp.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
             </span>
-            <span style={{ textAlign: 'right', color: chgColor(r.change) }}>
+            <span style={{ textAlign: 'right', color: chgColor(r.change), fontWeight: 500 }}>
               {r.change >= 0 ? '+' : ''}{r.change.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
             </span>
             <span style={{ textAlign: 'right', fontWeight: 700, color: chgColor(r.change_pct) }}>
               {pct(r.change_pct)}
             </span>
-            <span style={{ textAlign: 'right', color: 'var(--t2)' }}>
+            <span style={{ textAlign: 'right', color: 'var(--t2)', fontWeight: 500 }}>
               {r.high.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
             </span>
-            <span style={{ textAlign: 'right', color: 'var(--t4)', fontSize: 9 }}>
+            <span style={{ textAlign: 'right', color: 'var(--t4)', fontSize: 11 }}>
               {fmtNum(r.volume)}
             </span>
           </div>

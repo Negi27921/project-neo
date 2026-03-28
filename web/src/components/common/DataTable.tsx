@@ -45,7 +45,7 @@ export default function DataTable<T>({
       <table style={{
         width: '100%',
         borderCollapse: 'collapse',
-        fontSize: 11,
+        fontSize: 13,
         fontFamily: 'var(--font-mono)',
       }}>
         <thead>
@@ -56,10 +56,10 @@ export default function DataTable<T>({
                   key={h.id}
                   onClick={h.column.getToggleSortingHandler()}
                   style={{
-                    padding: '6px 10px',
+                    padding: '10px 16px',
                     textAlign: 'left',
-                    fontSize: 9,
-                    fontWeight: 600,
+                    fontSize: 13,
+                    fontWeight: 700,
                     color: 'var(--text-label)',
                     textTransform: 'uppercase',
                     letterSpacing: '0.10em',
@@ -107,7 +107,7 @@ export default function DataTable<T>({
                   <td
                     key={cell.id}
                     style={{
-                      padding: '7px 10px',
+                      padding: '14px 16px',
                       borderBottom: '1px solid rgba(17,31,17,0.4)',
                       color: 'var(--text-primary)',
                       whiteSpace: 'nowrap',

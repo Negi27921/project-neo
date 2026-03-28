@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { type ColumnDef } from '@tanstack/react-table'
 import MatrixCard from '../components/common/MatrixCard'
@@ -10,7 +10,7 @@ import SetupPopover from '../components/screener/SetupPopover'
 import client from '../api/client'
 import type { ScreenerRow, ScreenerResponse } from '../api/types'
 import { formatINR, formatNumber } from '../utils/formatters'
-import { CheckCircle2, XCircle, AlertTriangle, TrendingUp } from 'lucide-react'
+import { CheckCircle2, XCircle, AlertTriangle, TrendingUp, RefreshCw } from 'lucide-react'
 
 const STRATEGIES = [
   { key: 'ipo_base',    label: 'IPO Base',    totalConds: 6 },
@@ -38,7 +38,7 @@ function ConfidenceBar({ value, total }: { value: number; total: number }) {
       </div>
     }>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 3, cursor: 'help' }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color, fontFamily: 'var(--font-mono)' }}>{pct}%</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color, fontFamily: 'var(--font-mono)' }}>{pct}%</div>
         <div className="conf-track" style={{ width: 52 }}>
           <div className="conf-fill" style={{ width: `${pct}%`, background: color }} />
         </div>
@@ -54,17 +54,34 @@ export default function Screener() {
   const [loading, setLoading] = useState(true)
   const [matchedOnly, setMatchedOnly] = useState(false)
   const [search, setSearch] = useState('')
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
+  const lastRefreshRef = useRef<number>(0)
 
   const activeStrategy = STRATEGIES.find(s => s.key === activeTab)!
 
-  useEffect(() => {
-    setLoading(true)
-    setData(null)
-    client.get<ScreenerResponse>(`/screener/${activeTab}`).then(r => {
+  const fetchData = useCallback((tab: string, isManual = false) => {
+    if (isManual) {
+      const now = Date.now()
+      if (now - lastRefreshRef.current < 120_000) return // rate limit: 1 per 2 min
+      lastRefreshRef.current = now
+      setRefreshing(true)
+    } else {
+      setLoading(true)
+      setData(null)
+    }
+    client.get<ScreenerResponse>(`/screener/${tab}`).then(r => {
       setData(r.data)
+      setLastUpdated(new Date())
+    }).finally(() => {
       setLoading(false)
+      setRefreshing(false)
     })
-  }, [activeTab])
+  }, [])
+
+  useEffect(() => {
+    fetchData(activeTab)
+  }, [activeTab, fetchData])
 
   const rows = useMemo(() => {
     let r = data?.results ?? []
@@ -84,7 +101,7 @@ export default function Screener() {
           : <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Conditions not met — no setup generated</div>
         return (
           <MatrixTooltip content={content}>
-            <span style={{ fontWeight: 700, color: 'var(--text-primary)', cursor: 'help', fontSize: 11 }}>{r.symbol}</span>
+            <span style={{ fontWeight: 600, color: 'var(--text-primary)', cursor: 'help', fontSize: 14 }}>{r.symbol}</span>
           </MatrixTooltip>
         )
       },
@@ -281,15 +298,36 @@ export default function Screener() {
         accentTop
         noPad
         headerRight={
-          data && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 10 }}>
-              <TrendingUp size={10} color="var(--text-secondary)" />
-              <span style={{ color: data.matched > 0 ? 'var(--green-matrix)' : 'var(--text-muted)', fontWeight: data.matched > 0 ? 700 : 400 }}>
-                {data.matched}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 10 }}>
+            {data && (
+              <>
+                <TrendingUp size={10} color="var(--text-secondary)" />
+                <span style={{ color: data.matched > 0 ? 'var(--green-matrix)' : 'var(--text-muted)', fontWeight: data.matched > 0 ? 700 : 400 }}>
+                  {data.matched}
+                </span>
+                <span style={{ color: 'var(--text-muted)' }}>/ {data.total} matched</span>
+              </>
+            )}
+            {lastUpdated && (
+              <span style={{ color: 'var(--t4)', fontFamily: 'var(--font-mono)', fontSize: 9 }}>
+                Updated {Math.round((Date.now() - lastUpdated.getTime()) / 60000) === 0
+                  ? 'just now'
+                  : `${Math.round((Date.now() - lastUpdated.getTime()) / 60000)}m ago`}
               </span>
-              <span style={{ color: 'var(--text-muted)' }}>/ {data.total} matched</span>
-            </div>
-          )
+            )}
+            <button
+              onClick={() => fetchData(activeTab, true)}
+              disabled={refreshing}
+              title="Refresh (rate-limited to once per 2 minutes)"
+              style={{
+                background: 'none', border: 'none', cursor: refreshing ? 'not-allowed' : 'pointer',
+                color: refreshing ? 'var(--t4)' : 'var(--t3)', padding: 2, display: 'flex',
+                opacity: refreshing ? 0.5 : 1,
+              }}
+            >
+              <RefreshCw size={11} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
+            </button>
+          </div>
         }
       >
         {loading ? <div style={{ padding: 14 }}><LoadingSkeleton rows={8} /></div> : (
