@@ -1,17 +1,18 @@
 """
-Orders router — paper trading (default) + live Dhan execution.
-All trades persisted to SQLite (neo_trades table).
+Orders router — paper trading + live execution via broker BAL.
+Supports any live broker (Shoonya, Dhan) via the abstraction layer.
 
-POST /api/orders/place          — place BUY/SELL order
-POST /api/orders/{id}/exit      — close an open position, compute P&L
-GET  /api/orders                — in-memory order book (?mode=paper|live)
-GET  /api/orders/history        — persisted trades from DB
+POST   /api/orders/place        — place BUY/SELL order (paper or live)
+POST   /api/orders/{id}/exit    — close an open position, compute P&L
+GET    /api/orders              — order book (?mode=paper|live)
+GET    /api/orders/history      — persisted trades from DB
 DELETE /api/orders/{id}         — cancel order
-GET  /api/orders/margin         — available margin from broker
+GET    /api/orders/margin       — available margin from broker
 """
 
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query
@@ -51,19 +52,27 @@ class ExitRequest(BaseModel):
 # ── Helpers ────────────────────────────────────────────────────────────────
 
 def _get_ltp(symbol: str) -> float:
-    """Fetch current LTP via yfinance. Returns 0.0 on failure."""
+    """
+    Fetch current LTP.
+    Priority: live broker (Shoonya/Dhan) → yfinance fallback.
+    """
+    try:
+        from src.api.deps import get_broker, is_live
+        from src.brokers.base import Exchange
+        broker = get_broker()
+        if is_live():
+            from src.api.routers.quotes import NSE_TOKENS
+            token = NSE_TOKENS.get(symbol.upper(), symbol.upper())
+            q = broker.get_quote(Exchange.NSE, token)
+            return float(q.ltp)
+    except Exception:
+        pass
+
     try:
         import yfinance as yf
         hist = yf.Ticker(f"{symbol}.NS").history(period="1d", interval="1m")
         if not hist.empty:
             return float(hist["Close"].iloc[-1])
-    except Exception:
-        pass
-    try:
-        from src.brokers.dhan.adapter import _yf_quotes
-        quotes = _yf_quotes([symbol])
-        if symbol in quotes:
-            return float(quotes[symbol].ltp)
     except Exception:
         pass
     return 0.0
@@ -110,6 +119,16 @@ def _calc_pnl(side: str, entry: float, exit_p: float, qty: int) -> tuple[float, 
     return round(gross, 2), round(gross - brokerage, 2)
 
 
+# ── BAL type maps ──────────────────────────────────────────────────────────
+
+def _to_bal_types(req: OrderRequest):
+    from src.brokers.base import OrderSide, OrderType, ProductType
+    side_map = {"BUY": OrderSide.BUY, "SELL": OrderSide.SELL}
+    ot_map   = {"MARKET": OrderType.MARKET, "LIMIT": OrderType.LIMIT}
+    pt_map   = {"INTRADAY": ProductType.INTRADAY, "DELIVERY": ProductType.CASH}
+    return side_map[req.side], ot_map[req.order_type], pt_map[req.product_type]
+
+
 # ── Endpoints ──────────────────────────────────────────────────────────────
 
 @router.post("/place")
@@ -144,36 +163,34 @@ def place_order(req: OrderRequest):
         _persist_trade(order)
         return {"success": True, "order": order}
 
-    # ── Live trade via Dhan ──────────────────────────────────────────────
+    # ── Live trade via broker BAL (Shoonya / Dhan / any) ─────────────────
     try:
-        from src.api.deps import get_broker
+        from src.api.deps import get_broker, is_live
+        from src.brokers.base import Exchange
+
         broker = get_broker()
-        if not hasattr(broker, "_api"):
-            raise HTTPException(400, "Live trading requires Dhan broker. Current broker does not support order placement.")
+        if not is_live():
+            raise HTTPException(400, "No live broker is connected. Check broker credentials in .env.")
 
-        api = broker._api
-        from src.brokers.dhan.adapter import SYMBOL_TO_SECURITY_ID, NSE_EQ
-        security_id = SYMBOL_TO_SECURITY_ID.get(req.symbol.upper())
-        if security_id is None:
-            raise HTTPException(400, f"Symbol '{req.symbol}' not in Dhan security master.")
+        # Fetch live LTP from broker for fill price estimate
+        ltp = _get_ltp(req.symbol.upper())
 
-        product_map = {"INTRADAY": "INTRADAY", "DELIVERY": "CNC"}
-        resp = api.place_order(
-            security_id=str(security_id),
-            exchange_segment=NSE_EQ,
-            transaction_type=req.side,
+        side_bal, ot_bal, pt_bal = _to_bal_types(req)
+
+        internal_id = broker.place_order(
+            exchange=Exchange.NSE,
+            symbol=req.symbol.upper(),
+            side=side_bal,
+            order_type=ot_bal,
+            product_type=pt_bal,
             quantity=req.quantity,
-            order_type=req.order_type,
-            product_type=product_map[req.product_type],
-            price=req.price,
-            trigger_price=req.trigger_price,
+            price=Decimal(str(req.price)) if req.price else Decimal("0"),
+            trigger_price=Decimal(str(req.trigger_price)) if req.trigger_price else Decimal("0"),
+            remarks=req.remarks or "NEO LIVE",
         )
-        if resp.get("status") != "success":
-            raise HTTPException(400, f"Dhan rejected order: {resp.get('remarks', str(resp))}")
 
-        order_data = resp.get("data", {})
         order = {
-            "id":            str(order_data.get("orderId", uuid.uuid4()))[:12],
+            "id":            internal_id,
             "mode":          "live",
             "symbol":        req.symbol.upper(),
             "side":          req.side,
@@ -181,15 +198,15 @@ def place_order(req: OrderRequest):
             "product_type":  req.product_type,
             "quantity":      req.quantity,
             "price":         req.price,
-            "fill_price":    float(order_data.get("averageTradedPrice") or 0) or None,
+            "fill_price":    round(ltp, 2),
             "stop_loss":     req.stop_loss,
             "target_1":      req.target_1,
             "target_2":      req.target_2,
             "strategy":      req.strategy,
             "confidence_pct": req.confidence_pct,
-            "status":        order_data.get("orderStatus", "PENDING"),
+            "status":        "PENDING",
             "placed_at":     datetime.now().isoformat(),
-            "remarks":       req.remarks or "Live order — Dhan",
+            "remarks":       req.remarks or "NEO Live Order",
         }
         _live_orders.insert(0, order)
         _persist_trade(order)
@@ -197,6 +214,8 @@ def place_order(req: OrderRequest):
 
     except HTTPException:
         raise
+    except RuntimeError as exc:
+        raise HTTPException(400, f"Broker rejected order: {exc}")
     except Exception as exc:
         raise HTTPException(500, f"Order placement failed: {exc}")
 
@@ -232,16 +251,16 @@ def exit_trade(trade_id: str, req: ExitRequest):
         )
 
     return {
-        "success":    True,
-        "trade_id":   trade_id.upper(),
-        "symbol":     trade["symbol"],
-        "side":       trade["side"],
+        "success":     True,
+        "trade_id":    trade_id.upper(),
+        "symbol":      trade["symbol"],
+        "side":        trade["side"],
         "entry_price": trade["entry_price"],
-        "exit_price": round(exit_price, 2),
-        "quantity":   exit_qty,
-        "gross_pnl":  gross,
-        "net_pnl":    net,
-        "exit_time":  now,
+        "exit_price":  round(exit_price, 2),
+        "quantity":    exit_qty,
+        "gross_pnl":   gross,
+        "net_pnl":     net,
+        "exit_time":   now,
     }
 
 
@@ -285,29 +304,14 @@ def trade_history(
 def get_orders(mode: str = "paper"):
     if mode == "live":
         try:
-            from src.api.deps import get_broker
+            from src.api.deps import get_broker, is_live
             broker = get_broker()
-            if hasattr(broker, "_api"):
-                resp = broker._api.get_order_list()
-                if resp.get("status") == "success":
-                    live = resp.get("data", []) or []
-                    return {"orders": [
-                        {
-                            "id":           str(o.get("orderId", ""))[:12],
-                            "mode":         "live",
-                            "symbol":       o.get("tradingSymbol", ""),
-                            "side":         o.get("transactionType", ""),
-                            "order_type":   o.get("orderType", ""),
-                            "product_type": o.get("productType", ""),
-                            "quantity":     int(o.get("quantity") or 0),
-                            "price":        float(o.get("price") or 0),
-                            "fill_price":   float(o.get("averageTradedPrice") or 0) or None,
-                            "status":       o.get("orderStatus", ""),
-                            "placed_at":    o.get("createTime", ""),
-                            "remarks":      o.get("remarks", ""),
-                        }
-                        for o in live
-                    ]}
+            if is_live():
+                # Use adapter's get_open_orders() if available (Shoonya)
+                if hasattr(broker, "get_open_orders"):
+                    orders = broker.get_open_orders()
+                    if orders is not None:
+                        return {"orders": orders}
         except Exception:
             pass
         return {"orders": _live_orders}
@@ -328,15 +332,22 @@ def cancel_order(order_id: str, mode: str = "paper"):
             )
         return {"success": True}
 
+    # Live cancel — broker-agnostic via BAL
     try:
-        from src.api.deps import get_broker
+        from src.api.deps import get_broker, is_live
         broker = get_broker()
-        if not hasattr(broker, "_api"):
-            raise HTTPException(400, "Live cancel requires Dhan broker.")
-        resp = broker._api.cancel_order(order_id)
-        if resp.get("status") != "success":
-            raise HTTPException(400, f"Cancel failed: {resp.get('remarks', str(resp))}")
+        if not is_live():
+            raise HTTPException(400, "No live broker connected.")
+        ok = broker.cancel_order(order_id)
+        if not ok:
+            raise HTTPException(400, f"Broker rejected cancel for {order_id}")
         _live_orders = [o for o in _live_orders if o["id"] != order_id]
+        from src.api.database import get_conn
+        with get_conn() as conn:
+            conn.execute(
+                "UPDATE neo_trades SET status='CANCELLED' WHERE id=? AND status='OPEN'",
+                (order_id,),
+            )
         return {"success": True}
     except HTTPException:
         raise

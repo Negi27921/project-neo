@@ -268,11 +268,35 @@ class ShoonyaAdapter(BrokerBase):
     def cancel_order(self, order_id: str) -> bool:
         with self._order_lock:
             norenordno = self._order_map.get(order_id)
+        # Fallback: treat order_id itself as norenordno (e.g. from order book listing)
         if not norenordno:
-            raise ValueError(f"Unknown order ID: {order_id}")
+            norenordno = order_id
 
         ret = self._retry_on_expiry(self._api.cancel_order, orderno=norenordno)
         return ret is not None and ret.get("stat") == "Ok"
+
+    def get_open_orders(self) -> list[dict]:
+        """Return today's order book as a list of normalised dicts."""
+        ret = self._retry_on_expiry(self._api.get_order_book)
+        if not ret:
+            return []
+        orders = []
+        for r in ret:
+            orders.append({
+                "id":           r.get("norenordno", ""),
+                "mode":         "live",
+                "symbol":       r.get("tsym", ""),
+                "side":         "BUY" if r.get("trantype") == "B" else "SELL",
+                "order_type":   r.get("prctyp", ""),
+                "product_type": r.get("prd", ""),
+                "quantity":     int(r.get("qty") or 0),
+                "price":        float(r.get("prc") or 0),
+                "fill_price":   float(r.get("avgprc") or 0) or None,
+                "status":       r.get("rpt", ""),
+                "placed_at":    r.get("norentm", ""),
+                "remarks":      r.get("rem", ""),
+            })
+        return orders
 
     def get_order_status(self, order_id: str) -> Order:
         with self._order_lock:

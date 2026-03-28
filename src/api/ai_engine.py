@@ -144,22 +144,51 @@ def _place_ai_trade(candidate: dict, cfg: dict) -> None:
     from src.api.routers.orders import _get_ltp
 
     symbol = candidate["symbol"]
-    ltp = _get_ltp(symbol) or float(candidate.get("ltp", 0))
+    ltp    = _get_ltp(symbol) or float(candidate.get("ltp", 0))
 
     if ltp <= 0:
         logger.warning("[AI] Skipping %s — could not get LTP.", symbol)
         return
 
-    qty = max(1, int(cfg["capital_per_trade"] / ltp))
+    qty      = max(1, int(cfg["capital_per_trade"] / ltp))
+    now      = datetime.now().isoformat()
     trade_id = str(uuid.uuid4())[:12].upper()
-    now = datetime.now().isoformat()
+    mode     = cfg["mode"]
 
-    # Setup levels from screener result (if match)
-    setup = candidate.get("setup") or {}
+    setup     = candidate.get("setup") or {}
     stop_loss = setup.get("stop_loss")
     target_1  = setup.get("target_1")
     target_2  = setup.get("target_2")
 
+    # ── Live broker placement ───────────────────────────────────────────────
+    if mode == "live":
+        try:
+            from src.api.deps import get_broker, is_live
+            from src.brokers.base import Exchange, OrderSide, OrderType, ProductType
+            from decimal import Decimal
+
+            broker = get_broker()
+            if is_live():
+                broker_id = broker.place_order(
+                    exchange=Exchange.NSE,
+                    symbol=symbol,
+                    side=OrderSide.BUY,
+                    order_type=OrderType.MARKET,
+                    product_type=ProductType.INTRADAY,
+                    quantity=qty,
+                    price=Decimal("0"),
+                    remarks=f"AI:{candidate.get('_strategy', 'auto')}",
+                )
+                trade_id = broker_id  # Use broker's internal UUID
+                logger.info("[AI] Live order placed for %s — broker_id: %s", symbol, broker_id)
+            else:
+                logger.warning("[AI] Mode=live but broker is not live — downgrading to paper.")
+                mode = "paper"
+        except Exception as exc:
+            logger.error("[AI] Live order failed for %s: %s — recording as paper.", symbol, exc)
+            mode = "paper"
+
+    # ── Persist to DB ───────────────────────────────────────────────────────
     with get_conn() as conn:
         conn.execute(
             """
@@ -173,7 +202,7 @@ def _place_ai_trade(candidate: dict, cfg: dict) -> None:
                 trade_id, symbol, "BUY", "MARKET", "INTRADAY",
                 qty, round(ltp, 2),
                 stop_loss, target_1, target_2,
-                cfg["mode"], "ai",
+                mode, "ai",
                 candidate.get("_strategy"),
                 candidate.get("_confidence"),
                 "OPEN", now, now,
@@ -181,6 +210,6 @@ def _place_ai_trade(candidate: dict, cfg: dict) -> None:
         )
 
     logger.info(
-        "[AI] %s %s — %s x%d @ ₹%.2f (conf %.1f%%)",
-        cfg["mode"].upper(), "PLACED", symbol, qty, ltp, candidate.get("_confidence", 0),
+        "[AI] %s PLACED — %s x%d @ ₹%.2f (conf %.1f%%)",
+        mode.upper(), symbol, qty, ltp, candidate.get("_confidence", 0),
     )
