@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import { Globe, LayoutDashboard, ScanSearch, BarChart2, BookOpen, Briefcase, Bot, ChevronRight, LogOut, ClipboardList, Cpu } from 'lucide-react'
+import { Globe, LayoutDashboard, ScanSearch, BarChart2, BookOpen, Briefcase, Bot, ChevronRight, LogOut, ClipboardList, Cpu, CandlestickChart } from 'lucide-react'
 import client from '../../api/client'
 import { useAuth } from '../../contexts/AuthContext'
 import ModeToggle from '../trading/ModeToggle'
@@ -9,25 +9,26 @@ const NAV_GROUPS = [
   {
     label: 'MARKETS',
     items: [
-      { to: '/',           icon: Globe,           label: 'Market Overview', end: true },
-      { to: '/positions',  icon: Briefcase,       label: 'Positions',       end: false },
+      { to: '/',                  icon: Globe,            label: 'Market Overview', end: true  },
+      { to: '/positions',         icon: Briefcase,        label: 'Positions',       end: false },
+      { to: '/chart/RELIANCE',    icon: CandlestickChart, label: 'Stock Charts',    end: false },
     ],
   },
   {
     label: 'TRADING',
     items: [
-      { to: '/orders',     icon: ClipboardList,   label: 'Orders',          end: false },
-      { to: '/screener',   icon: ScanSearch,      label: 'Screener',        end: false },
-      { to: '/ai',         icon: Cpu,             label: 'AI Agent',        end: false },
-      { to: '/simulator',  icon: Bot,             label: 'Bot Simulator',   end: false },
+      { to: '/orders',            icon: ClipboardList,    label: 'Orders',          end: false },
+      { to: '/screener',          icon: ScanSearch,       label: 'Screener',        end: false },
+      { to: '/ai',                icon: Cpu,              label: 'AI Agent',        end: false },
+      { to: '/simulator',         icon: Bot,              label: 'Bot Simulator',   end: false },
     ],
   },
   {
     label: 'PORTFOLIO',
     items: [
-      { to: '/portfolio',  icon: LayoutDashboard, label: 'Dashboard',       end: false },
-      { to: '/trades',     icon: BookOpen,        label: 'Trade Logs',      end: false },
-      { to: '/analytics',  icon: BarChart2,       label: 'Analytics',       end: false },
+      { to: '/portfolio',         icon: LayoutDashboard,  label: 'Dashboard',       end: false },
+      { to: '/trades',            icon: BookOpen,         label: 'Trade Logs',      end: false },
+      { to: '/analytics',         icon: BarChart2,        label: 'Analytics',       end: false },
     ],
   },
 ]

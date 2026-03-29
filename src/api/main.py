@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.api.mock_data.store import init_store
 from src.api.routers import dashboard, screener, trades, pnl, calendar, quotes, positions
 from src.api.routers import market, orders, ai_agent, symbols
+from src.api.routers import chart, research
 
 logger = logging.getLogger(__name__)
 
@@ -157,6 +158,8 @@ app.include_router(market.router,     prefix="/api/market",     tags=["market"])
 app.include_router(orders.router,     prefix="/api/orders",     tags=["orders"])
 app.include_router(ai_agent.router,   prefix="/api/ai",         tags=["ai"])
 app.include_router(symbols.router,    prefix="/api/symbols",    tags=["symbols"])
+app.include_router(chart.router,      prefix="/api/chart",      tags=["chart"])
+app.include_router(research.router,   prefix="/api/research",   tags=["research"])
 
 
 @app.get("/api/health")

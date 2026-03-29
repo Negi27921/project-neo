@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import AnimatedNum from '../components/common/AnimatedNum'
 import {
   ArrowUpRight, ArrowDownRight, Minus,
-  TrendingUp, TrendingDown, Target, Activity, Zap,
+  TrendingUp, TrendingDown, Target, Activity, ShoppingCart, BarChart2,
 } from 'lucide-react'
 import MatrixTooltip from '../components/common/MatrixTooltip'
 import LoadingSkeleton from '../components/common/LoadingSkeleton'
 import TVChart from '../components/charts/TVChart'
 import SparkLine from '../components/charts/SparkLine'
+import TradeModal from '../components/trading/TradeModal'
 import { useSSE } from '../hooks/useSSE'
 import client from '../api/client'
 import type { DashboardSummary, QuoteSSEPayload, Quote, EquityCurvePoint, ScreenerResponse } from '../api/types'
@@ -251,8 +253,13 @@ function SignalRow({ symbol, strategy, confidence, setup }: {
 /* ─── Live Watch Card ───────────────────────────────────────── */
 const quoteHistories: Record<string, number[]> = {}
 
-function WatchCard({ q, prev }: { q: Quote; prev: number }) {
-  const [flash, setFlash] = useState('')
+function WatchCard({ q, prev, onTrade, onChart }: {
+  q: Quote; prev: number
+  onTrade: (symbol: string, ltp: number) => void
+  onChart:  (symbol: string) => void
+}) {
+  const [flash,   setFlash]   = useState('')
+  const [hovered, setHovered] = useState(false)
   const isUp  = q.change >= 0
   const color = pnlColor(q.change)
 
@@ -304,9 +311,11 @@ function WatchCard({ q, prev }: { q: Quote; prev: number }) {
   )
 
   return (
-    <MatrixTooltip content={hoverContent} delay={50}>
+    <MatrixTooltip content={hoverContent} delay={80}>
       <motion.div
         className={flash}
+        onHoverStart={() => setHovered(true)}
+        onHoverEnd={() => setHovered(false)}
         whileHover={{ y: -4, boxShadow: `0 12px 32px rgba(0,0,0,0.5), 0 0 20px ${glowBg}` }}
         style={{
           background: `linear-gradient(155deg, ${glowBg} 0%, #000 55%)`,
@@ -335,7 +344,7 @@ function WatchCard({ q, prev }: { q: Quote; prev: number }) {
           </div>
           <div>
             <div style={{ fontWeight: 700, fontSize: 12, color: 'var(--t1)', fontFamily: 'var(--font-display)' }}>{q.symbol}</div>
-            <div style={{ fontSize: 8, color: 'var(--t4)', fontFamily: 'var(--font-mono)' }}>NSE · MOCK</div>
+            <div style={{ fontSize: 8, color: 'var(--t4)', fontFamily: 'var(--font-mono)' }}>NSE · LIVE</div>
           </div>
         </div>
 
@@ -364,6 +373,41 @@ function WatchCard({ q, prev }: { q: Quote; prev: number }) {
         {hist.length >= 2 && (
           <SparkLine data={[...hist]} width={136} height={28} positive={isUp} />
         )}
+
+        {/* Action buttons — visible on hover */}
+        {hovered && (
+          <div style={{
+            position: 'absolute', bottom: 8, right: 8,
+            display: 'flex', gap: 5,
+          }}>
+            <button
+              onClick={e => { e.stopPropagation(); onChart(q.symbol) }}
+              title="View chart"
+              style={{
+                width: 26, height: 26, borderRadius: 5,
+                background: 'rgba(0,255,65,0.08)',
+                border: '1px solid rgba(0,255,65,0.2)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', color: 'var(--t-matrix)',
+              }}
+            >
+              <BarChart2 size={11} />
+            </button>
+            <button
+              onClick={e => { e.stopPropagation(); onTrade(q.symbol, q.ltp) }}
+              title="Trade"
+              style={{
+                width: 26, height: 26, borderRadius: 5,
+                background: 'rgba(0,255,65,0.12)',
+                border: '1px solid rgba(0,255,65,0.35)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', color: 'var(--t-matrix)',
+              }}
+            >
+              <ShoppingCart size={11} />
+            </button>
+          </div>
+        )}
       </motion.div>
     </MatrixTooltip>
   )
@@ -375,15 +419,21 @@ const STRATEGY_KEYS  = ['ipo_base', 'rocket_base', 'vcp']
 
 /* ─── Main Dashboard ────────────────────────────────────────── */
 export default function Dashboard() {
+  const navigate = useNavigate()
   const [summary, setSummary] = useState<DashboardSummary | null>(null)
   const [equity,  setEquity]  = useState<EquityCurvePoint[]>([])
   const [signals, setSignals] = useState<{
     symbol: string; strategy: string; confidence: number;
     setup: { entry: number; stop_loss: number; target_1: number } | null
   }[]>([])
+  const [tradeSymbol, setTradeSymbol] = useState<string | null>(null)
+  const [tradeLtp,    setTradeLtp]    = useState<number>(0)
   const sseOrigin = import.meta.env.VITE_API_URL ?? ''
   const { data: sseData } = useSSE<QuoteSSEPayload>(`${sseOrigin}/api/quotes/stream`, 'quotes')
   const [prevLtps, setPrevLtps] = useState<Record<string, number>>({})
+
+  const openTrade = (symbol: string, ltp: number) => { setTradeSymbol(symbol); setTradeLtp(ltp) }
+  const toChart   = (symbol: string) => navigate(`/chart/${symbol}`)
 
   useEffect(() => {
     client.get<DashboardSummary>('/dashboard/summary').then(r => setSummary(r.data)).catch(() => {})
@@ -423,17 +473,42 @@ export default function Dashboard() {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
 
+      {/* ── Global Trade Modal ──────────────────────────────────── */}
+      {tradeSymbol && (
+        <TradeModal
+          symbol={tradeSymbol}
+          initialLtp={tradeLtp || undefined}
+          onClose={() => setTradeSymbol(null)}
+        />
+      )}
+
       {/* ── Live Ticker ────────────────────────────────────────── */}
       <TickerStrip quotes={quotes} />
 
       {/* ── MY PORTFOLIO ───────────────────────────────────────── */}
       <SH title="MY PORTFOLIO" right={
-        summary && (
-          <div style={{ display: 'flex', gap: 16, fontSize: 10, fontFamily: 'var(--font-mono)' }}>
-            <span style={{ color: 'var(--t3)' }}>Capital</span>
-            <span style={{ color: 'var(--t1)', fontWeight: 700 }}>{formatINRCompact(summary.capital)}</span>
-          </div>
-        )
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {summary && (
+            <div style={{ display: 'flex', gap: 16, fontSize: 10, fontFamily: 'var(--font-mono)' }}>
+              <span style={{ color: 'var(--t3)' }}>Capital</span>
+              <span style={{ color: 'var(--t1)', fontWeight: 700 }}>{formatINRCompact(summary.capital)}</span>
+            </div>
+          )}
+          <button
+            onClick={() => openTrade('RELIANCE', 0)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              padding: '5px 12px', borderRadius: 5,
+              background: 'rgba(0,255,65,0.08)',
+              border: '1px solid rgba(0,255,65,0.3)',
+              color: 'var(--t-matrix)', cursor: 'pointer',
+              fontSize: 10, fontFamily: 'var(--font-mono)',
+              fontWeight: 700, letterSpacing: '0.08em',
+            }}
+          >
+            <ShoppingCart size={11} /> NEW TRADE
+          </button>
+        </div>
       } />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 24 }}>
@@ -511,7 +586,7 @@ export default function Dashboard() {
 
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-            <Zap size={10} color="var(--t-matrix)" />
+            <Activity size={10} color="var(--t-matrix)" />
             <span style={{ fontSize: 9, color: 'var(--t3)', fontFamily: 'var(--font-mono)', letterSpacing: '0.14em' }}>TOP SIGNALS</span>
             <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, var(--border), transparent)' }} />
             <span style={{ fontSize: 9, color: 'var(--t-matrix)', fontFamily: 'var(--font-mono)' }}>
@@ -547,7 +622,14 @@ export default function Dashboard() {
         </div>
       ) : (
         <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8, marginBottom: 24 }}>
-          {quotes.map(q => <WatchCard key={q.symbol} q={q} prev={prevLtps[q.symbol] ?? q.ltp} />)}
+          {quotes.map(q => (
+            <WatchCard
+              key={q.symbol} q={q}
+              prev={prevLtps[q.symbol] ?? q.ltp}
+              onTrade={openTrade}
+              onChart={toChart}
+            />
+          ))}
         </div>
       )}
 
@@ -558,7 +640,7 @@ export default function Dashboard() {
           <table className="terminal-table">
             <thead>
               <tr>
-                {['#', 'Symbol', 'LTP', 'Change', 'Chg%', 'High', 'Low', 'Volume', '20-Tick Trend'].map(h => (
+                {['#', 'Symbol', 'LTP', 'Change', 'Chg%', 'High', 'Low', 'Volume', '20-Tick Trend', ''].map(h => (
                   <th key={h}>{h}</th>
                 ))}
               </tr>
@@ -580,7 +662,10 @@ export default function Dashboard() {
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           fontSize: 7, fontWeight: 800, color, flexShrink: 0,
                         }}>{q.symbol.slice(0, 3)}</div>
-                        <span style={{ fontWeight: 700, fontSize: 12, color: 'var(--t1)', fontFamily: 'var(--font-display)' }}>{q.symbol}</span>
+                        <span
+                          onClick={() => toChart(q.symbol)}
+                          style={{ fontWeight: 700, fontSize: 12, color: 'var(--t1)', fontFamily: 'var(--font-display)', cursor: 'pointer', textDecoration: 'underline', textDecorationColor: 'rgba(255,255,255,0.15)', textUnderlineOffset: 3 }}
+                        >{q.symbol}</span>
                       </div>
                     </td>
                     <td>
@@ -611,6 +696,38 @@ export default function Dashboard() {
                       {hist.length >= 2
                         ? <SparkLine data={[...hist]} width={84} height={26} positive={isUp} />
                         : <span style={{ color: 'var(--t4)', fontSize: 9 }}>—</span>}
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <button
+                          onClick={() => toChart(q.symbol)}
+                          title="View Chart"
+                          style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            width: 26, height: 26, borderRadius: 5,
+                            background: 'rgba(0,255,65,0.06)', border: '1px solid rgba(0,255,65,0.18)',
+                            color: 'var(--green-matrix)', cursor: 'pointer', flexShrink: 0,
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(0,255,65,0.14)' }}
+                          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,255,65,0.06)' }}
+                        >
+                          <BarChart2 size={11} />
+                        </button>
+                        <button
+                          onClick={() => openTrade(q.symbol, q.ltp)}
+                          title="Trade"
+                          style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            width: 26, height: 26, borderRadius: 5,
+                            background: 'rgba(6,182,212,0.06)', border: '1px solid rgba(6,182,212,0.2)',
+                            color: 'var(--accent-cyan)', cursor: 'pointer', flexShrink: 0,
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(6,182,212,0.14)' }}
+                          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(6,182,212,0.06)' }}
+                        >
+                          <ShoppingCart size={11} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 )

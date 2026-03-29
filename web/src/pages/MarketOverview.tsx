@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   fetchMarketOverview, fetchSectorRotation, fetchTopMovers,
   fetchNiftyScreener, fetchNifty500Screener,
   type MarketOverview, type SectorPoint, type TopMovers, type StockRow,
 } from '../api/market'
 import StockMetaTooltip from '../components/common/StockMetaTooltip'
+import TradeModal from '../components/trading/TradeModal'
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -688,6 +690,9 @@ function ScreenerTable({
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'gainers' | 'losers'>('all')
   const [universe, setUniverse] = useState<'100' | '500'>('100')
+  const [tradeSymbol, setTradeSymbol] = useState<string | null>(null)
+  const [tradeLtp, setTradeLtp] = useState(0)
+  const navigate = useNavigate()
 
   const rows = universe === '100' ? rows100 : rows500
   const visible = rows.filter(r => {
@@ -755,7 +760,7 @@ function ScreenerTable({
 
       {/* Column headers */}
       <div style={{
-        display: 'grid', gridTemplateColumns: '1fr 90px 80px 70px 70px 70px',
+        display: 'grid', gridTemplateColumns: '1fr 90px 80px 70px 70px 70px 64px',
         padding: '10px 16px', borderBottom: '1px solid var(--border)',
         fontSize: 11, fontWeight: 700, color: 'var(--t4)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em',
       }}>
@@ -765,20 +770,25 @@ function ScreenerTable({
         <span style={{ textAlign: 'right' }}>CHG%</span>
         <span style={{ textAlign: 'right' }}>HIGH</span>
         <span style={{ textAlign: 'right' }}>VOL</span>
+        <span style={{ textAlign: 'center' }}>ACT</span>
       </div>
 
       {/* Rows — virtualized via fixed-height scroll */}
       <div style={{ maxHeight: 360, overflowY: 'auto' }}>
         {visible.map((r, i) => (
           <div key={r.symbol} style={{
-            display: 'grid', gridTemplateColumns: '1fr 90px 80px 70px 70px 70px',
-            padding: '10px 16px',
+            display: 'grid', gridTemplateColumns: '1fr 90px 80px 70px 70px 70px 64px',
+            padding: '8px 16px',
             borderBottom: i < visible.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
             fontFamily: 'var(--font-mono)', fontSize: 13,
             background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.012)',
+            alignItems: 'center',
           }}>
             <StockMetaTooltip symbol={r.symbol}>
-              <span style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: 14, cursor: 'help' }}>{r.symbol}</span>
+              <span
+                onClick={() => navigate(`/chart/${r.symbol}`)}
+                style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: 14, cursor: 'pointer', textDecoration: 'underline', textDecorationColor: 'rgba(255,255,255,0.15)', textUnderlineOffset: 3 }}
+              >{r.symbol}</span>
             </StockMetaTooltip>
             <span style={{ textAlign: 'right', color: 'var(--text-primary)', fontWeight: 500 }}>
               {r.ltp.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
@@ -795,6 +805,41 @@ function ScreenerTable({
             <span style={{ textAlign: 'right', color: 'var(--t4)', fontSize: 11 }}>
               {fmtNum(r.volume)}
             </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center' }}>
+              <button
+                onClick={() => navigate(`/chart/${r.symbol}`)}
+                title="View Chart"
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: 24, height: 24, borderRadius: 4,
+                  background: 'rgba(0,255,65,0.06)', border: '1px solid rgba(0,255,65,0.18)',
+                  color: 'var(--green-matrix)', cursor: 'pointer',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(0,255,65,0.14)' }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,255,65,0.06)' }}
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+                </svg>
+              </button>
+              <button
+                onClick={() => { setTradeSymbol(r.symbol); setTradeLtp(r.ltp) }}
+                title="Trade"
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: 24, height: 24, borderRadius: 4,
+                  background: 'rgba(6,182,212,0.06)', border: '1px solid rgba(6,182,212,0.2)',
+                  color: 'var(--accent-cyan)', cursor: 'pointer',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(6,182,212,0.14)' }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(6,182,212,0.06)' }}
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+                  <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+                </svg>
+              </button>
+            </div>
           </div>
         ))}
         {visible.length === 0 && (
@@ -803,6 +848,9 @@ function ScreenerTable({
           </div>
         )}
       </div>
+      {tradeSymbol && (
+        <TradeModal symbol={tradeSymbol} initialLtp={tradeLtp} onClose={() => setTradeSymbol(null)} />
+      )}
     </div>
   )
 }

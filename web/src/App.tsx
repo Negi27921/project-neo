@@ -13,6 +13,8 @@ import Positions from './pages/Positions'
 import Simulator from './pages/Simulator'
 import Orders from './pages/Orders'
 import AIAgent from './pages/AIAgent'
+import ChartPage from './pages/ChartPage'
+import ResearchBot from './components/research/ResearchBot'
 
 const AUTH_KEY = 'neo_auth_v1'
 
@@ -44,7 +46,6 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
 
 /* ── App ───────────────────────────────────────────────────────────────── */
 export default function App() {
-  // Persist login across refreshes via localStorage
   const [loggedIn, setLoggedIn] = useState<boolean>(() => {
     try { return localStorage.getItem(AUTH_KEY) === '1' } catch { return false }
   })
@@ -68,17 +69,20 @@ export default function App() {
           <BrowserRouter>
             <Routes>
               <Route element={<RootLayout />}>
-                <Route index             element={<ErrorBoundary><MarketOverview /></ErrorBoundary>} />
-                <Route path="portfolio"  element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
-                <Route path="screener"   element={<ErrorBoundary><Screener /></ErrorBoundary>} />
-                <Route path="analytics"  element={<ErrorBoundary><Analytics /></ErrorBoundary>} />
-                <Route path="trades"     element={<ErrorBoundary><TradeLogs /></ErrorBoundary>} />
-                <Route path="positions"  element={<ErrorBoundary><Positions /></ErrorBoundary>} />
-                <Route path="simulator"  element={<ErrorBoundary><Simulator /></ErrorBoundary>} />
-                <Route path="orders"     element={<ErrorBoundary><Orders /></ErrorBoundary>} />
-                <Route path="ai"         element={<ErrorBoundary><AIAgent /></ErrorBoundary>} />
+                <Route index                    element={<ErrorBoundary><MarketOverview /></ErrorBoundary>} />
+                <Route path="portfolio"         element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
+                <Route path="screener"          element={<ErrorBoundary><Screener /></ErrorBoundary>} />
+                <Route path="analytics"         element={<ErrorBoundary><Analytics /></ErrorBoundary>} />
+                <Route path="trades"            element={<ErrorBoundary><TradeLogs /></ErrorBoundary>} />
+                <Route path="positions"         element={<ErrorBoundary><Positions /></ErrorBoundary>} />
+                <Route path="simulator"         element={<ErrorBoundary><Simulator /></ErrorBoundary>} />
+                <Route path="orders"            element={<ErrorBoundary><Orders /></ErrorBoundary>} />
+                <Route path="ai"                element={<ErrorBoundary><AIAgent /></ErrorBoundary>} />
+                <Route path="chart/:symbol"     element={<ErrorBoundary><ChartPage /></ErrorBoundary>} />
               </Route>
             </Routes>
+            {/* Global floating research bot — available on every page */}
+            <ResearchBot />
           </BrowserRouter>
         </TradingProvider>
       </AuthContext.Provider>
