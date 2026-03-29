@@ -132,10 +132,39 @@ Guidelines:
 """
 
 _STOPWORDS = {
-    "IS", "IN", "THE", "AND", "OR", "FOR", "WHAT", "HOW", "WHY", "BUY", "SELL",
-    "NSE", "BSE", "IPO", "FII", "DII", "TELL", "ME", "ABOUT", "AT", "TO", "DO",
-    "CAN", "ANY", "GET", "TOP", "NIFTY", "SENSEX", "MARKET", "STOCK", "TRADE",
-    "THIS", "THAT", "WITH", "FROM", "HAVE", "WILL", "GIVE", "SHOW", "PRICE",
+    # Articles / prepositions
+    "IS", "IN", "THE", "AND", "OR", "FOR", "AT", "TO", "OF", "ON", "BY", "AS",
+    # Question words
+    "WHAT", "HOW", "WHY", "WHO", "WHEN", "WHERE", "WHICH",
+    # Verbs
+    "DO", "GET", "BUY", "SELL", "GIVE", "SHOW", "TELL", "HAVE", "WILL", "CAN",
+    "ANALYSE", "ANALYZE", "ANALYSIS", "ANALYSING", "ANALYZING",
+    "PERFORMING", "PERFORM", "DOING", "LOOKING", "THINK", "KNOW", "FIND",
+    # Common nouns in trading context
+    "NSE", "BSE", "IPO", "FII", "DII", "ME", "ABOUT",
+    "TOP", "NIFTY", "SENSEX", "MARKET", "STOCK", "TRADE", "TRADING",
+    "THIS", "THAT", "WITH", "FROM", "ANY", "PRICE", "RATE",
+    "TODAY", "OUTLOOK", "VIEW", "NEWS", "LATEST", "RECENT", "CURRENT",
+    "BEST", "GOOD", "BAD", "HIGH", "LOW", "STRONG", "WEAK",
+    "SECTOR", "INDUSTRY", "BANKING", "FINANCIAL", "ENERGY", "TECH",
+    "STOCKS", "SHARES", "EQUITY", "FUNDS", "PORTFOLIO",
+    "INDIA", "INDIAN", "NSE", "BSE",
+}
+
+# Nifty 50 + Nifty Next 50 common NSE symbols — used for priority matching
+_NSE_SYMBOLS = {
+    "RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK", "HINDUNILVR", "SBIN",
+    "BAJFINANCE", "BHARTIARTL", "ITC", "LT", "KOTAKBANK", "AXISBANK", "ASIANPAINT",
+    "HCLTECH", "MARUTI", "SUNPHARMA", "TITAN", "ULTRACEMCO", "WIPRO", "NESTLEIND",
+    "ONGC", "NTPC", "POWERGRID", "COALINDIA", "TECHM", "BAJAJFINSV", "GRASIM",
+    "ADANIPORTS", "JSWSTEEL", "TATAMOTORS", "TATASTEEL", "HINDALCO", "CIPLA",
+    "DIVISLAB", "DRREDDY", "APOLLOHOSP", "EICHERMOT", "BPCL", "HEROMOTOCO",
+    "TATACONSUM", "UPL", "INDUSINDBK", "SBILIFE", "HDFCLIFE", "ADANIENT",
+    "BRITANNIA", "BAJAJ-AUTO", "LTIM", "ZOMATO", "PAYTM", "NYKAA",
+    "IRCTC", "DMART", "ABB", "SIEMENS", "HAVELLS", "PIDILITIND",
+    "MUTHOOTFIN", "CHOLAFIN", "MAXHEALTH", "POLYCAB", "TRENT", "VBL",
+    "PERSISTENT", "COFORGE", "MPHASIS", "OFSS", "KPIT", "CDSL", "BSE",
+    "HDFCAMC", "ICICIGI", "ICICIPRULI", "SBICARD", "LICI", "NIFTY",
 }
 
 
@@ -152,9 +181,15 @@ async def research_chat(req: ChatRequest):
     # ── Detect ticker ─────────────────────────────────────────────────────────
     detected = req.symbol
     if not detected:
-        tickers = re.findall(r'\b([A-Z&]{3,15})\b', req.message.upper())
-        candidates = [t for t in tickers if t not in _STOPWORDS]
-        detected = candidates[0] if candidates else None
+        tokens = re.findall(r'\b([A-Z0-9&\-]{2,15})\b', req.message.upper())
+        candidates = [t for t in tokens if t not in _STOPWORDS and len(t) >= 2]
+        # Priority 1: exact match in known NSE symbols
+        nse_matches = [t for t in candidates if t in _NSE_SYMBOLS]
+        if nse_matches:
+            detected = nse_matches[0]
+        elif candidates:
+            # Priority 2: first token that looks like a ticker (short, no lowercase)
+            detected = candidates[0]
 
     # ── Gather context concurrently ────────────────────────────────────────────
     search_q = f"{detected or ''} {req.message} NSE India stock".strip()
