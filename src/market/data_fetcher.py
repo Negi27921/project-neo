@@ -1,9 +1,11 @@
 """
-Market data fetcher — yfinance with in-memory TTL cache.
+Market data fetcher — Shoonya real-time (when live) + yfinance fallback.
 
-All fetches are cached to avoid hammering Yahoo Finance.
+Data source priority:
+  - Indices (NIFTY/BANKNIFTY):  Shoonya get_quote() → yfinance fallback
+  - All other indices:           yfinance
+  - Screener / movers / RRG:    yfinance batch download
 Indices: 60s TTL  |  Stocks: 5min TTL  |  Sector rotation: 15min TTL
-Screener (500 stocks): 5min TTL with background refresh support
 """
 
 import time
@@ -20,6 +22,50 @@ from src.market.universe import (
 )
 
 logger = logging.getLogger(__name__)
+
+# ── Shoonya real-time index token map ──────────────────────────────────────
+# Maps yfinance ticker → (exchange_name, shoonya_numeric_token)
+# Only indices with confirmed Shoonya tokens are listed here.
+# All others fall through to yfinance automatically.
+_SHOONYA_INDEX_TOKENS: dict[str, tuple[str, str]] = {
+    "^NSEI":    ("NSE", "26000"),   # NIFTY 50
+    "^NSEBANK": ("NSE", "26009"),   # BANK NIFTY
+}
+
+
+def _get_shoonya_index_quote(yf_ticker: str) -> dict | None:
+    """
+    Fetch a real-time index quote from Shoonya when the live broker is active.
+    Returns a snapshot dict compatible with _ticker_snapshot(), or None on any failure.
+    """
+    if yf_ticker not in _SHOONYA_INDEX_TOKENS:
+        return None
+    try:
+        from src.api.deps import get_broker, is_live, broker_name
+        if not is_live() or broker_name() != "shoonya_live":
+            return None
+        from src.brokers.base import Exchange
+        exch_name, token = _SHOONYA_INDEX_TOKENS[yf_ticker]
+        broker = get_broker()
+        q = broker.get_quote(Exchange(exch_name), token)
+        ltp        = float(q.ltp)
+        prev_close = float(q.close) if q.close else ltp
+        chg        = ltp - prev_close
+        chg_pct    = (chg / prev_close * 100) if prev_close else 0
+        return {
+            "ltp":        round(ltp, 2),
+            "open":       round(float(q.open), 2),
+            "high":       round(float(q.high), 2),
+            "low":        round(float(q.low), 2),
+            "prev_close": round(prev_close, 2),
+            "change":     round(chg, 2),
+            "change_pct": round(chg_pct, 2),
+            "volume":     int(q.volume) if q.volume else 0,
+        }
+    except Exception as e:
+        logger.debug("Shoonya index quote failed for %s: %s", yf_ticker, e)
+        return None
+
 
 # ── Simple TTL cache ───────────────────────────────────────────────────────
 _cache: dict[str, tuple[float, Any]] = {}
@@ -133,11 +179,11 @@ def _chunked_batch_snapshots(symbols: list[str], chunk_size: int = 100) -> dict[
 # ── Public API ─────────────────────────────────────────────────────────────
 
 def get_indices() -> list[dict]:
-    """All NSE sector indices — cached 60s."""
+    """All NSE sector indices — Shoonya real-time for mapped indices, yfinance fallback. Cached 60s."""
     def fetch():
         out = []
         for ticker, meta in INDEX_TICKERS.items():
-            snap = _ticker_snapshot(ticker)
+            snap = _get_shoonya_index_quote(ticker) or _ticker_snapshot(ticker)
             if snap:
                 out.append({"ticker": ticker, **meta, **snap})
         return out

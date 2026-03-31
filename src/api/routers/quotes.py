@@ -11,9 +11,12 @@ Data source priority:
 
 import asyncio
 import json
+import logging
 import time
 from datetime import datetime
 from threading import Lock
+
+logger = logging.getLogger(__name__)
 
 import yfinance as yf
 from fastapi import APIRouter
@@ -25,11 +28,23 @@ from src.brokers.base import Exchange
 router = APIRouter()
 
 UNIVERSE = [
-    "RELIANCE", "TCS", "HDFCBANK", "INFY",
-    "WIPRO", "ICICIBANK", "SBIN", "BAJFINANCE",
+    # Nifty 50 — full universe for real-time streaming
+    "RELIANCE", "TCS", "HDFCBANK", "ICICIBANK", "INFY",
+    "KOTAKBANK", "LT", "HINDUNILVR", "ITC", "AXISBANK",
+    "BAJFINANCE", "BHARTIARTL", "ASIANPAINT", "MARUTI", "WIPRO",
+    "ULTRACEMCO", "TITAN", "ADANIPORTS", "BAJAJFINSV", "SBIN",
+    "SUNPHARMA", "TATAMOTORS", "TATASTEEL", "TECHM", "NESTLEIND",
+    "NTPC", "POWERGRID", "COALINDIA", "HCLTECH", "ONGC",
+    "DRREDDY", "DIVISLAB", "CIPLA", "EICHERMOT", "HEROMOTOCO",
+    "BPCL", "JSWSTEEL", "BRITANNIA", "HINDALCO", "GRASIM",
+    "BAJAJ-AUTO", "M&M", "INDUSINDBK", "TATACONSUM", "APOLLOHOSP",
+    "SBILIFE", "HDFCLIFE", "SHREECEM", "ADANIENT",
 ]
 
-# Shoonya numeric tokens (NSE equity segment)
+# Shoonya numeric tokens (NSE equity segment).
+# Symbols without a token entry are skipped during WS subscription —
+# they will simply not appear in the live stream for that session.
+# Add more tokens from Shoonya's symbol master as needed.
 NSE_TOKENS: dict[str, str] = {
     "RELIANCE":   "2885",
     "TCS":        "11536",
@@ -39,6 +54,47 @@ NSE_TOKENS: dict[str, str] = {
     "ICICIBANK":  "4963",
     "SBIN":       "3045",
     "BAJFINANCE": "317",
+    "KOTAKBANK":  "1922",
+    "LT":         "11483",
+    "HINDUNILVR": "1394",
+    "ITC":        "1660",
+    "AXISBANK":   "5900",
+    "BHARTIARTL": "10604",
+    "ASIANPAINT": "236",
+    "MARUTI":     "10999",
+    "ULTRACEMCO": "11532",
+    "TITAN":      "3506",
+    "ADANIPORTS": "15083",
+    "BAJAJFINSV": "16675",
+    "SUNPHARMA":  "3351",
+    "TATAMOTORS": "3456",
+    "TATASTEEL":  "3499",
+    "TECHM":      "13538",
+    "NESTLEIND":  "17963",
+    "NTPC":       "11630",
+    "POWERGRID":  "14977",
+    "COALINDIA":  "20374",
+    "HCLTECH":    "7229",
+    "ONGC":       "2475",
+    "DRREDDY":    "881",
+    "DIVISLAB":   "10940",
+    "CIPLA":      "694",
+    "EICHERMOT":  "910",
+    "HEROMOTOCO": "1348",
+    "BPCL":       "526",
+    "JSWSTEEL":   "11723",
+    "BRITANNIA":  "547",
+    "HINDALCO":   "1363",
+    "GRASIM":     "1232",
+    "BAJAJ-AUTO": "16669",
+    "M&M":        "2031",
+    "INDUSINDBK": "5258",
+    "TATACONSUM": "3432",
+    "APOLLOHOSP": "157",
+    "SBILIFE":    "21808",
+    "HDFCLIFE":   "467",
+    "SHREECEM":   "3103",
+    "ADANIENT":   "25",
 }
 
 # yfinance NSE tickers
@@ -82,8 +138,13 @@ def _init_shoonya_ws(broker) -> None:
         return on_tick
 
     for symbol in UNIVERSE:
-        token = NSE_TOKENS[symbol]
-        broker.subscribe(Exchange.NSE, token, make_callback(symbol))
+        token = NSE_TOKENS.get(symbol)
+        if not token:
+            continue
+        try:
+            broker.subscribe(Exchange.NSE, token, make_callback(symbol))
+        except Exception as e:
+            logger.warning("Shoonya WS subscribe failed for %s (token=%s): %s", symbol, token, e)
 
 
 # ── yfinance batch cache (mock / paper mode) ───────────────────────────────
@@ -209,8 +270,10 @@ async def _quote_stream():
             else:
                 # WebSocket not warmed yet — poll once per symbol
                 for symbol in UNIVERSE:
+                    token = NSE_TOKENS.get(symbol)
+                    if not token:
+                        continue
                     try:
-                        token = NSE_TOKENS[symbol]
                         q = await loop.run_in_executor(
                             None, broker.get_quote, Exchange.NSE, token
                         )
